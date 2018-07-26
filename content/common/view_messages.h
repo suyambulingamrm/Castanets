@@ -273,7 +273,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::TextInputState)
   IPC_STRUCT_TRAITS_MEMBER(can_compose_inline)
   IPC_STRUCT_TRAITS_MEMBER(show_ime_if_needed)
   IPC_STRUCT_TRAITS_MEMBER(reply_to_request)
-#if defined(USE_EFL)
+#if defined(USE_EFL) && !defined(CASTANETS)
   // Whether Input field is in Form tag or not.
   IPC_STRUCT_TRAITS_MEMBER(is_in_form_tag)
   IPC_STRUCT_TRAITS_MEMBER(is_user_action)
@@ -327,7 +327,7 @@ IPC_STRUCT_BEGIN(ViewHostMsg_ResizeOrRepaint_ACK_Params)
   IPC_STRUCT_MEMBER(uint64_t, sequence_number)
 IPC_STRUCT_END()
 
-#if defined(USE_EFL)
+#if defined(USE_EFL)  && !defined(CASTANETS)
 IPC_STRUCT_BEGIN(ViewMsg_DeviceDisplayInfo_Params)
   // Display width in pixels.
   IPC_STRUCT_MEMBER(int, display_width)
@@ -604,13 +604,18 @@ IPC_MESSAGE_ROUTED0(ViewMsg_GetSelectionVisibilityStatus)
 // Notifies the renderer on receiving the selection bit map.
 IPC_MESSAGE_ROUTED0(ViewMsg_GetSelectionBitmap)
 
-#if defined(USE_EFL)
+#if defined(USE_EFL)  && !defined(CASTANETS)
 // Notifies the renderer on selecting the word closest to given point.
 IPC_MESSAGE_ROUTED2(ViewMsg_SelectClosestWord, int, int)
 #endif
 
 // Notifies the renderer on clearing the selection.
 IPC_MESSAGE_ROUTED0(ViewMsg_ClearTextSelection)
+
+#if defined(OS_TIZEN) && !defined(CASTANETS)
+// Notifies the renderer on entering drag state.
+IPC_MESSAGE_ROUTED0(ViewMsg_DragStateEnter)
+#endif
 
 // Notifies the renderer on receiving the selection markup.
 IPC_MESSAGE_ROUTED0(ViewMsg_GetSelectionMarkup)
@@ -630,7 +635,7 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SelectLinkText, gfx::Point)
 //Sent by browser when LongPress is initiated for Enter Key
 IPC_MESSAGE_ROUTED1(ViewMsg_LongPressOnFocused, IPC::WebInputEventPointer)
 
-#if defined(OS_ANDROID)  && !defined(CASTANETS)
+#if defined(OS_ANDROID) && !defined(CASTANETS)
 // Notifies the renderer whether hiding/showing the browser controls is enabled
 // and whether or not to animate to the proper state.
 IPC_MESSAGE_ROUTED3(ViewMsg_UpdateBrowserControlsState,
@@ -655,7 +660,7 @@ IPC_MESSAGE_ROUTED1(ViewMsg_MoveFocusToPrevNextInputElement,
 IPC_MESSAGE_ROUTED0(ViewMsg_SelectFocusedLink)
 #endif
 
-#if defined(USE_EFL)
+#if defined(USE_EFL) && !defined(CASTANETS)
 // Sent by the browser when rotation is updated in browser.
 IPC_MESSAGE_ROUTED1(ViewMsg_UpdateRotationDegrees, int /* rotation_degrees */)
 
@@ -670,6 +675,10 @@ IPC_MESSAGE_ROUTED3(ViewMsg_UpdateBrowserControlsState,
                     content::BrowserControlsState /* constraints */,
                     content::BrowserControlsState /* current */,
                     bool /* animate */)
+#endif
+#if !defined(CASTANETS)
+IPC_MESSAGE_ROUTED1(ViewMsg_SetClearTilesOnHide,
+                    bool /* enabled/disabled a state to set */)
 #endif
 
 #if defined(OS_TIZEN_TV_PRODUCT)
@@ -814,7 +823,15 @@ IPC_MESSAGE_ROUTED1(ViewHostMsg_DidContentsPreferredSizeChange,
 IPC_MESSAGE_ROUTED1(ViewHostMsg_HasTouchEventHandlers,
                     bool /* has_handlers */)
 
-#if defined(USE_EFL)
+#if defined(OS_TIZEN) && !defined(CASTANETS)
+IPC_MESSAGE_ROUTED4(ViewHostMsg_AddEdgeEffectONSCROLLTizenUIF,
+                    bool /* top */,
+                    bool /* bottom */,
+                    bool /* right */,
+                    bool /* left */)
+#endif
+
+#if defined(USE_EFL) && !defined(CASTANETS)
 IPC_MESSAGE_ROUTED2(ViewHostMsg_SnapshotDataReceived,
                     SkBitmap /* snapshot */,
                     int /* snapshot id */);
@@ -896,7 +913,7 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_Snapshot,
                     SkBitmap /* bitmap */,
                     int /* request_id */)
 
-#if defined(USE_EFL)
+#if defined(USE_EFL)  && !defined(CASTANETS)
 // Notifies the browser that the renderer was resized.
 IPC_MESSAGE_ROUTED0(ViewHostMsg_DidResize)
 

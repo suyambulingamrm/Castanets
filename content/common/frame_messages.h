@@ -172,6 +172,12 @@ IPC_STRUCT_TRAITS_BEGIN(content::ContextMenuParams)
   IPC_STRUCT_TRAITS_MEMBER(spellcheck_enabled)
   IPC_STRUCT_TRAITS_MEMBER(is_editable)
 #if !defined(CASTANETS)
+#if defined(OS_TIZEN)
+  IPC_STRUCT_TRAITS_MEMBER(is_draggable)
+#endif
+#if defined(USE_EFL)
+  IPC_STRUCT_TRAITS_MEMBER(is_user_select_none)
+#endif
   IPC_STRUCT_TRAITS_MEMBER(is_text_node)
 #endif
   IPC_STRUCT_TRAITS_MEMBER(writing_direction_default)
@@ -685,6 +691,18 @@ IPC_STRUCT_BEGIN(FrameHostMsg_ShowPopup_Params)
 
   // AdvancedIME Options for WebSelectDialog
   IPC_STRUCT_MEMBER(int, advanced_ime_options)
+IPC_STRUCT_END()
+#endif
+
+#if (defined(OS_TIZEN_TV_PRODUCT) || defined(USE_WAYLAND)) && !defined(CASTANETS)
+IPC_STRUCT_BEGIN(FrameHostMsg_FocusedNodeChanged_Params)
+#if defined(OS_TIZEN_TV_PRODUCT)
+  IPC_STRUCT_MEMBER(bool, is_radio_or_checkbox_input_node)
+  IPC_STRUCT_MEMBER(int, password_input_minlength)
+#endif
+#if defined(USE_WAYLAND)
+  IPC_STRUCT_MEMBER(bool, is_content_editable)
+#endif
 IPC_STRUCT_END()
 #endif
 
@@ -1308,14 +1326,13 @@ IPC_SYNC_MESSAGE_CONTROL3_1(FrameHostMsg_Are3DAPIsBlocked,
 // keyboard input (true for textfields, text areas and content editable divs).
 // The second parameter is the node bounds relative to local root's
 // RenderWidgetHostView.
-#if defined(OS_TIZEN_TV_PRODUCT)
+#if (defined(OS_TIZEN_TV_PRODUCT) || defined(USE_WAYLAND)) && !defined(CASTANETS)
 IPC_MESSAGE_ROUTED5(FrameHostMsg_FocusedNodeChanged,
                     bool /* is_editable_node */,
                     gfx::Rect /* node_bounds */,
                     bool /* is_select_node */,
                     base::string16 /* node_id */,
-                    bool /* is_radio_or_checkbox_input_node */)
-
+                    FrameHostMsg_FocusedNodeChanged_Params /* params */)
 #else
 IPC_MESSAGE_ROUTED2(FrameHostMsg_FocusedNodeChanged,
                     bool /* is_editable_node */,
@@ -1753,7 +1770,7 @@ IPC_MESSAGE_ROUTED0(FrameHostMsg_HidePopup)
 
 #endif
 
-#if defined(OS_ANDROID)  && !defined(CASTANETS)
+#if defined(OS_ANDROID) && !defined(CASTANETS)
 // Response to FrameMsg_FindMatchRects.
 //
 // |version| will contain the current version number of the renderer's find

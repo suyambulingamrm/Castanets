@@ -384,6 +384,13 @@ void LegacyInputRouterImpl::OfferToHandlers(
                       ? InputEventDispatchType::DISPATCH_TYPE_BLOCKING
                       : InputEventDispatchType::DISPATCH_TYPE_NON_BLOCKING);
 
+  // For Castanets dont expect input event acks. As it causes gesture/event processing
+  // issues. Dispatching InputHostMsg_HandleInputEvent_ACK IPC message has issues
+  // when the environments are different.
+#if defined(CASTANETS)
+  should_block = false;
+#endif
+
   // Generate a synthetic ack if the event was sent so it doesn't block.
   if (!should_block) {
     ProcessInputEventAck(

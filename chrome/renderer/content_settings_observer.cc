@@ -301,6 +301,9 @@ bool ContentSettingsObserver::AllowIndexedDB(const WebString& name,
     return false;
 
   bool result = false;
+#if defined(CASTANETS)
+  return true;
+#endif
   Send(new ChromeViewHostMsg_AllowIndexedDB(
       routing_id(), url::Origin(frame->GetSecurityOrigin()).GetURL(),
       url::Origin(frame->Top()->GetSecurityOrigin()).GetURL(), name.Utf16(),
