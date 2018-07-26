@@ -112,6 +112,10 @@
 #include "content/utility/in_process_utility_thread.h"
 #endif
 
+#if defined(CASTANETS)
+#include "ui/gl/gl_switches.h"
+#endif
+
 namespace content {
 extern int GpuMain(const content::MainFunctionParams&);
 #if BUILDFLAG(ENABLE_PLUGINS)
@@ -533,6 +537,8 @@ class ContentMainRunnerImpl : public ContentMainRunner {
 
     base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kInProcessGPU);
     base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kDisableAcceleratedVideoDecode);
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kDisableBrowserSideNavigation);
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kDisableGpuVsync);
 
     base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kProcessPerTab);
 

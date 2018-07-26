@@ -73,6 +73,10 @@
 #include "third_party/WebKit/public/platform/mac/WebScrollbarTheme.h"
 #endif
 
+#if defined(USE_EFL)
+#include "content/public/common/browser_controls_state.h"
+#endif
+
 #undef IPC_MESSAGE_EXPORT
 #define IPC_MESSAGE_EXPORT CONTENT_EXPORT
 
@@ -269,6 +273,13 @@ IPC_STRUCT_TRAITS_BEGIN(content::TextInputState)
   IPC_STRUCT_TRAITS_MEMBER(can_compose_inline)
   IPC_STRUCT_TRAITS_MEMBER(show_ime_if_needed)
   IPC_STRUCT_TRAITS_MEMBER(reply_to_request)
+#if defined(USE_EFL)
+  // Whether Input field is in Form tag or not.
+  IPC_STRUCT_TRAITS_MEMBER(is_in_form_tag)
+  IPC_STRUCT_TRAITS_MEMBER(is_user_action)
+  // IME Options for Soft Keyboard
+  IPC_STRUCT_TRAITS_MEMBER(advanced_ime_options)
+#endif
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_BEGIN(ViewHostMsg_DateTimeDialogValue_Params)
@@ -286,6 +297,7 @@ IPC_STRUCT_BEGIN(ViewHostMsg_SelectionBounds_Params)
   IPC_STRUCT_MEMBER(gfx::Rect, focus_rect)
   IPC_STRUCT_MEMBER(blink::WebTextDirection, focus_dir)
   IPC_STRUCT_MEMBER(bool, is_anchor_first)
+  IPC_STRUCT_MEMBER(bool, is_last_touch_point)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewHostMsg_ResizeOrRepaint_ACK_Params)
@@ -315,9 +327,22 @@ IPC_STRUCT_BEGIN(ViewHostMsg_ResizeOrRepaint_ACK_Params)
   IPC_STRUCT_MEMBER(uint64_t, sequence_number)
 IPC_STRUCT_END()
 
+#if defined(USE_EFL)
+IPC_STRUCT_BEGIN(ViewMsg_DeviceDisplayInfo_Params)
+  // Display width in pixels.
+  IPC_STRUCT_MEMBER(int, display_width)
+  // Display height in pixels.
+  IPC_STRUCT_MEMBER(int, display_height)
+  // Density Independent Pixels scale.
+  IPC_STRUCT_MEMBER(double, dip_scale)
+  // Rotation in degrees.
+  IPC_STRUCT_MEMBER(int, rotation_degrees)
+IPC_STRUCT_END()
+#endif
+
 // Messages sent from the browser to the renderer.
 
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(USE_EFL)
 // Tells the renderer to cancel an opened date/time dialog.
 IPC_MESSAGE_ROUTED0(ViewMsg_CancelDateTimeDialog)
 
@@ -327,6 +352,10 @@ IPC_MESSAGE_ROUTED1(ViewMsg_ReplaceDateTime,
 
 #endif
 
+// Replaces a date time input field with string
+IPC_MESSAGE_ROUTED1(ViewMsg_ReplaceDateTime_String,
+                    std::string /* dialog value */)
+
 // Tells the render side that a ViewHostMsg_LockMouse message has been
 // processed. |succeeded| indicates whether the mouse has been successfully
 // locked or not.
@@ -334,6 +363,23 @@ IPC_MESSAGE_ROUTED1(ViewMsg_LockMouse_ACK,
                     bool /* succeeded */)
 // Tells the render side that the mouse has been unlocked.
 IPC_MESSAGE_ROUTED0(ViewMsg_MouseLockLost)
+
+#if defined(S_TERRACE_SUPPORT)
+IPC_MESSAGE_ROUTED1(ViewMsg_FastScrollerEnabled,
+                    bool /* enabled */)
+#endif
+
+// Tells the renderer to get the cached reader article images in reading list.
+IPC_MESSAGE_ROUTED2(ViewMsg_GetBitmapFromCachedResource,
+                    std::string /*imgUrl*/,
+                    int /* request_id */)
+
+// Send by the renderer when it gets the bitmap from cached resources.
+// Browser process then use the bitmap for displaying webpage
+// snapshots in reading list when save page operation is done.
+IPC_MESSAGE_ROUTED2(ViewHostMsg_OnGetBitmapFromCachedResource,
+                    SkBitmap /*bitmap*/,
+                    int /* request_id */);
 
 // Sends updated preferences to the renderer.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetRendererPrefs,
@@ -411,6 +457,9 @@ IPC_MESSAGE_ROUTED2(ViewMsg_SetWebUIProperty,
                     std::string /* property_name */,
                     std::string /* property_value_json */)
 
+// Tell the renderer to delay loads for a page to avoid key lagging.
+IPC_MESSAGE_ROUTED1(ViewMsg_DefersLoading, bool /* defers */)
+
 // Used to notify the render-view that we have received a target URL. Used
 // to prevent target URLs spamming the browser.
 IPC_MESSAGE_ROUTED0(ViewMsg_UpdateTargetURL_ACK)
@@ -419,6 +468,8 @@ IPC_MESSAGE_ROUTED0(ViewMsg_UpdateTargetURL_ACK)
 IPC_MESSAGE_ROUTED2(ViewMsg_EnumerateDirectoryResponse,
                     int /* request_id */,
                     std::vector<base::FilePath> /* files_in_directory */)
+
+IPC_MESSAGE_ROUTED1(ViewHostMsg_NotifyUrlForPlayingVideo, GURL /* url */)
 
 // Instructs the renderer to close the current page, including running the
 // onunload event handler.
@@ -537,6 +588,48 @@ IPC_MESSAGE_ROUTED3(ViewMsg_ResolveTapDisambiguation,
 // Fetches complete rendered content of a web page as plain text.
 IPC_MESSAGE_ROUTED0(ViewMsg_GetRenderedText)
 
+// Tells the renderer to check for article content on the webpage
+IPC_MESSAGE_ROUTED1(ViewMsg_RecognizeArticle,
+                    int /*mode*/)
+
+IPC_MESSAGE_ROUTED0(ViewMsg_RequestNumberOfBlockedElements)
+
+// Tells the renderer to enable the night mode for reader pages
+IPC_MESSAGE_ROUTED1(ViewMsg_EnableNightMode,
+                    bool /*nightMode*/)
+
+// Tells the renderer if the current selection falls within the visible rect
+IPC_MESSAGE_ROUTED0(ViewMsg_GetSelectionVisibilityStatus)
+
+// Notifies the renderer on receiving the selection bit map.
+IPC_MESSAGE_ROUTED0(ViewMsg_GetSelectionBitmap)
+
+#if defined(USE_EFL)
+// Notifies the renderer on selecting the word closest to given point.
+IPC_MESSAGE_ROUTED2(ViewMsg_SelectClosestWord, int, int)
+#endif
+
+// Notifies the renderer on clearing the selection.
+IPC_MESSAGE_ROUTED0(ViewMsg_ClearTextSelection)
+
+// Notifies the renderer on receiving the selection markup.
+IPC_MESSAGE_ROUTED0(ViewMsg_GetSelectionMarkup)
+
+IPC_MESSAGE_ROUTED5(ViewMsg_HandleSelectionDragDrop,
+                    int,
+                    int,
+                    base::string16,
+                    base::string16,
+                    bool)
+// Notifies the renderer to select link text to given point.
+// Parameter specifies the location in render view coordinates
+// where Context Menu is shown.
+// TODO[Tizen]: Sending point is not required here and needs to be removed.
+IPC_MESSAGE_ROUTED1(ViewMsg_SelectLinkText, gfx::Point)
+
+//Sent by browser when LongPress is initiated for Enter Key
+IPC_MESSAGE_ROUTED1(ViewMsg_LongPressOnFocused, IPC::WebInputEventPointer)
+
 #if defined(OS_ANDROID)
 // Notifies the renderer whether hiding/showing the browser controls is enabled
 // and whether or not to animate to the proper state.
@@ -545,7 +638,48 @@ IPC_MESSAGE_ROUTED3(ViewMsg_UpdateBrowserControlsState,
                     bool /* enable_showing */,
                     bool /* animate */)
 
+
+// Requests the renderer to retrieve the selection markup with start rect.
+IPC_MESSAGE_ROUTED0(ViewMsg_GetSelectionMarkupWithBounds)
+
+// Acknowledgement for multiselection notification from renderer to browser
+IPC_MESSAGE_ROUTED0(ViewHostMsg_MultiSelection_ACK)
+
+// Requests the renderer to move focus to prev/next input element
+IPC_MESSAGE_ROUTED1(ViewMsg_MoveFocusToPrevNextInputElement,
+                    bool /* is next element*/)
 #endif
+
+#if defined(OS_ANDROID) || defined(USE_EFL)
+// Sent by browser when the focused link has to be selected
+IPC_MESSAGE_ROUTED0(ViewMsg_SelectFocusedLink)
+#endif
+
+#if defined(USE_EFL)
+// Sent by the browser when rotation is updated in browser.
+IPC_MESSAGE_ROUTED1(ViewMsg_UpdateRotationDegrees, int /* rotation_degrees */)
+
+IPC_MESSAGE_ROUTED2(ViewMsg_GetSnapshotFromRender,
+                    gfx::Rect /* snapshot area */,
+                    int /* request id */)
+IPC_ENUM_TRAITS(content::BrowserControlsState)
+// Notifies the renderer whether hiding/showing the browser controls is enabled,
+// what the current state should be, and whether or not to animate to the
+// proper state.
+IPC_MESSAGE_ROUTED3(ViewMsg_UpdateBrowserControlsState,
+                    content::BrowserControlsState /* constraints */,
+                    content::BrowserControlsState /* current */,
+                    bool /* animate */)
+#endif
+
+#if defined(OS_TIZEN_TV_PRODUCT)
+// Message sent from the browser to the renderer to enable or disable
+// high contrast.
+IPC_MESSAGE_ROUTED1(ViewMsg_SetLayerInverted, bool /* inverted */)
+#endif
+
+IPC_MESSAGE_ROUTED1(ViewMsg_SetTileCoverAreaMultiplier,
+                    float /* cover arear (soon rect) multipler */)
 
 IPC_MESSAGE_ROUTED0(ViewMsg_SelectWordAroundCaret)
 
@@ -560,6 +694,13 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SetBeginFramePaused, bool /* paused */)
 
 // Sent by the browser when the renderer should generate a new frame.
 IPC_MESSAGE_ROUTED1(ViewMsg_BeginFrame, viz::BeginFrameArgs /* args */)
+
+// Sent by the browser to ask the renderer for a snapshot of content of
+// the current view.
+IPC_MESSAGE_ROUTED3(ViewMsg_CaptureRendererContentSnapShot,
+                    gfx::Rect /* Content rect to grab snapshot */,
+                    float /* page_scale_factor*/,
+                    int /* request_id */)
 
 // Sets the viewport intersection on the widget for an out-of-process iframe.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetViewportIntersection,
@@ -673,6 +814,12 @@ IPC_MESSAGE_ROUTED1(ViewHostMsg_DidContentsPreferredSizeChange,
 IPC_MESSAGE_ROUTED1(ViewHostMsg_HasTouchEventHandlers,
                     bool /* has_handlers */)
 
+#if defined(USE_EFL)
+IPC_MESSAGE_ROUTED2(ViewHostMsg_SnapshotDataReceived,
+                    SkBitmap /* snapshot */,
+                    int /* snapshot id */);
+#endif
+
 #if BUILDFLAG(ENABLE_PLUGINS)
 // A renderer sends this to the browser process when it wants to access a PPAPI
 // broker. In contrast to FrameHostMsg_OpenChannelToPpapiBroker, this is called
@@ -683,6 +830,10 @@ IPC_MESSAGE_ROUTED3(ViewHostMsg_RequestPpapiBrokerPermission,
                     GURL /* document_url */,
                     base::FilePath /* plugin_path */)
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
+
+#if defined(OS_TIZEN_TV_PRODUCT)
+IPC_MESSAGE_ROUTED0(ViewHostMsg_DidInitializeRenderer)
+#endif
 
 // Send the tooltip text for the current mouse position to the browser.
 IPC_MESSAGE_ROUTED2(ViewHostMsg_SetTooltipText,
@@ -711,6 +862,9 @@ IPC_MESSAGE_ROUTED1(ViewHostMsg_TakeFocus,
 IPC_MESSAGE_ROUTED1(ViewHostMsg_OpenDateTimeDialog,
                     ViewHostMsg_DateTimeDialogValue_Params /* value */)
 
+IPC_MESSAGE_ROUTED1(ViewHostMsg_TextInputInFormStateChanged,
+                    bool /* is in form Tag */)
+
 // Required for updating text input state.
 IPC_MESSAGE_ROUTED1(ViewHostMsg_TextInputStateChanged,
                     content::TextInputState /* text_input_state */)
@@ -735,6 +889,28 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_FrameSwapMessages,
 // updates were required or because it was aborted in the renderer).
 IPC_MESSAGE_ROUTED1(ViewHostMsg_DidNotProduceFrame,
                     viz::BeginFrameAck /* ack */)
+
+// Reply to a snapshot request containing whether snapshotting succeeded and the
+// SkBitmap if it succeeded.
+IPC_MESSAGE_ROUTED2(ViewHostMsg_Snapshot,
+                    SkBitmap /* bitmap */,
+                    int /* request_id */)
+
+#if defined(USE_EFL)
+// Notifies the browser that the renderer was resized.
+IPC_MESSAGE_ROUTED0(ViewHostMsg_DidResize)
+
+// Notifies the browser that editable content was changed.
+IPC_MESSAGE_ROUTED0(ViewHostMsg_EditableContentChanged)
+#endif
+
+// Requests for a selection rectangle. Will result in a
+// ViewHostMsg_SelectionRectReceived message being sent back.
+IPC_MESSAGE_ROUTED0(ViewMsg_RequestSelectionRect)
+
+// Reply to a selection rectangle request.
+IPC_MESSAGE_ROUTED1(ViewHostMsg_SelectionRectReceived,
+                    gfx::Rect /* selection rect */)
 
 // Send back a string to be recorded by UserMetrics.
 IPC_MESSAGE_CONTROL1(ViewHostMsg_UserMetricsRecordAction,
@@ -787,6 +963,14 @@ IPC_MESSAGE_ROUTED0(ViewHostMsg_HideValidationMessage)
 IPC_MESSAGE_ROUTED1(ViewHostMsg_MoveValidationMessage,
                     gfx::Rect /* anchor rectangle in root view coordinate */)
 
+IPC_MESSAGE_ROUTED1(ViewHostMsg_SelectedMarkup, base::string16)
+IPC_MESSAGE_ROUTED1(ViewHostMsg_SelectedBitmap, SkBitmap)
+IPC_MESSAGE_ROUTED2(ViewHostMsg_OnRecognizeArticleResult,
+                    bool /* true when the content is recognized as article */,
+                    base::string16 /* URL of the webpage */)
+
+IPC_MESSAGE_ROUTED1(ViewHostMsg_OnNumberOfBlockedElements, int)
+
 // Sent once a paint happens after the first non empty layout. In other words,
 // after the frame widget has painted something.
 IPC_MESSAGE_ROUTED0(ViewHostMsg_DidFirstVisuallyNonEmptyPaint)
@@ -801,17 +985,48 @@ IPC_MESSAGE_ROUTED3(ViewHostMsg_SelectWordAroundCaretAck,
                     int /* start_adjust */,
                     int /* end_adjust */)
 
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(USE_EFL)
+
+#if defined(S_TERRACE_SUPPORT) || defined(USE_EFL)
+// Start an android intent with the given URI.
+IPC_MESSAGE_ROUTED2(ViewHostMsg_StartContentIntent,
+                    GURL /* content_url */,
+                    bool /* is_main_frame */)
+#endif
+
 // Notifies that an unhandled tap has occurred at the specified x,y position
 // and that the UI may need to be triggered.
 IPC_MESSAGE_ROUTED2(ViewHostMsg_ShowUnhandledTapUIIfNeeded,
                     int /* x */,
                     int /* y */)
 
+// Renderer sends the retrieved selection markup with start rect.
+IPC_MESSAGE_ROUTED2(ViewHostMsg_SelectedMarkupWithStartContentRect,
+                    base::string16, gfx::Rect)
+
 #elif defined(OS_MACOSX)
 // Receives content of a web page as plain text.
 IPC_MESSAGE_ROUTED1(ViewMsg_GetRenderedTextCompleted, std::string)
 #endif
+
+#if defined(S_TERRACE_SUPPORT)
+IPC_MESSAGE_ROUTED2(ViewMsg_SearchCandidateImage,
+                    int /*resolution*/,
+                    float /*aspect_ratio*/)
+
+IPC_MESSAGE_ROUTED1(ViewHostMsg_OnReceiveCandidateImage,
+                    SkBitmap /*bitmap*/)
+#endif
+
+// VRBrowser ++
+// Tells the renderer to set need desktop UA
+IPC_MESSAGE_ROUTED1(ViewMsg_SetNeedDesktopUA,
+                    bool /*daydreamMode*/)
+
+// Tells the renderer to set WebGL enabled
+IPC_MESSAGE_ROUTED1(ViewMsg_SetWebGLEnabled,
+                    bool /*dayDreamMode*/)
+// VRBrowser -
 
 // Adding a new message? Stick to the sort order above: first platform
 // independent ViewMsg, then ifdefs for platform specific ViewMsg, then platform

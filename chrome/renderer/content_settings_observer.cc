@@ -365,12 +365,16 @@ bool ContentSettingsObserver::AllowStorage(bool local) {
   if (permissions != cached_storage_permissions_.end())
     return permissions->second;
 
+#if defined(CASTANETS)
+  return true;
+#else
   bool result = false;
   Send(new ChromeViewHostMsg_AllowDOMStorage(
       routing_id(), url::Origin(frame->GetSecurityOrigin()).GetURL(),
       url::Origin(frame->Top()->GetSecurityOrigin()).GetURL(), local, &result));
   cached_storage_permissions_[key] = result;
   return result;
+#endif
 }
 
 bool ContentSettingsObserver::AllowReadFromClipboard(bool default_value) {

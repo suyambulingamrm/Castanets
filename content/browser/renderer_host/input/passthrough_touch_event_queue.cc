@@ -309,6 +309,7 @@ PassthroughTouchEventQueue::FilterBeforeForwarding(const WebTouchEvent& event) {
   }
 
   if (event.GetType() == WebInputEvent::kTouchStart) {
+               return ACK_WITH_NO_CONSUMER_EXISTS;
     return (has_handlers_ || maybe_has_handler_for_current_sequence_)
                ? FORWARD_TO_RENDERER
                : ACK_WITH_NO_CONSUMER_EXISTS;

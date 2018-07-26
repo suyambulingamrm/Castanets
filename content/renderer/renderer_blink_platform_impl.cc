@@ -796,6 +796,9 @@ void RendererBlinkPlatformImpl::GetPluginList(
     bool refresh,
     const blink::WebSecurityOrigin& mainFrameOrigin,
     blink::WebPluginListBuilder* builder) {
+#if defined(CASTANETS)
+return;
+#endif
 #if BUILDFLAG(ENABLE_PLUGINS)
   std::vector<WebPluginInfo> plugins;
   if (!plugin_refresh_allowed_)

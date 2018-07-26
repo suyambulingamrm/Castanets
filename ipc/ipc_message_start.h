@@ -88,10 +88,14 @@ enum IPCMessageStart {
   RenderProcessMsgStart,
   IPCTestMsgStart,
   DWriteFontProxyMsgStart,
+#if defined(S_TERRACE_SUPPORT)
+  TinMsgStart,
+#endif  // S_TERRACE_SUPPORT
   MediaPlayerDelegateMsgStart,
   SurfaceViewManagerMsgStart,
   ExtensionWorkerMsgStart,
   SubresourceFilterMsgStart,
+  GinNativeBridgeMsgStart,
   LastIPCMsgStart  // Must come last.
 };
 

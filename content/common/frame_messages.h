@@ -74,6 +74,10 @@
 #include "content/common/pepper_renderer_instance_data.h"
 #endif
 
+#if defined(S_TERRACE_SUPPORT)
+#include "ui/gfx/geometry/point.h"
+#endif
+
 // Singly-included section for type definitions.
 #ifndef INTERNAL_CONTENT_COMMON_FRAME_MESSAGES_H_
 #define INTERNAL_CONTENT_COMMON_FRAME_MESSAGES_H_
@@ -131,6 +135,9 @@ IPC_STRUCT_TRAITS_BEGIN(blink::WebFindOptions)
   IPC_STRUCT_TRAITS_MEMBER(match_case)
   IPC_STRUCT_TRAITS_MEMBER(find_next)
   IPC_STRUCT_TRAITS_MEMBER(force)
+#if defined(S_TERRACE_SUPPORT)
+  IPC_STRUCT_TRAITS_MEMBER(for_open_web_link)
+#endif
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::ColorSuggestion)
@@ -147,6 +154,10 @@ IPC_STRUCT_TRAITS_BEGIN(content::ContextMenuParams)
   IPC_STRUCT_TRAITS_MEMBER(unfiltered_link_url)
   IPC_STRUCT_TRAITS_MEMBER(src_url)
   IPC_STRUCT_TRAITS_MEMBER(has_image_contents)
+#if defined(S_TERRACE_SUPPORT)
+  IPC_STRUCT_TRAITS_MEMBER(image_width)
+  IPC_STRUCT_TRAITS_MEMBER(image_height)
+#endif
   IPC_STRUCT_TRAITS_MEMBER(properties)
   IPC_STRUCT_TRAITS_MEMBER(page_url)
   IPC_STRUCT_TRAITS_MEMBER(keyword_url)
@@ -160,6 +171,9 @@ IPC_STRUCT_TRAITS_BEGIN(content::ContextMenuParams)
   IPC_STRUCT_TRAITS_MEMBER(dictionary_suggestions)
   IPC_STRUCT_TRAITS_MEMBER(spellcheck_enabled)
   IPC_STRUCT_TRAITS_MEMBER(is_editable)
+#if !defined(CASTANETS)
+  IPC_STRUCT_TRAITS_MEMBER(is_text_node)
+#endif
   IPC_STRUCT_TRAITS_MEMBER(writing_direction_default)
   IPC_STRUCT_TRAITS_MEMBER(writing_direction_left_to_right)
   IPC_STRUCT_TRAITS_MEMBER(writing_direction_right_to_left)
@@ -624,7 +638,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::FileChooserParams)
   IPC_STRUCT_TRAITS_MEMBER(default_file_name)
   IPC_STRUCT_TRAITS_MEMBER(accept_types)
   IPC_STRUCT_TRAITS_MEMBER(need_local_path)
-#if defined(OS_ANDROID)
+#if (defined(OS_ANDROID) || defined(OS_TIZEN))  && !defined(CASTANETS)
   IPC_STRUCT_TRAITS_MEMBER(capture)
 #endif
   IPC_STRUCT_TRAITS_MEMBER(requestor)
@@ -644,7 +658,7 @@ IPC_STRUCT_BEGIN(FrameMsg_CommitDataNetworkService_Params)
   IPC_STRUCT_MEMBER(mojo::MessagePipeHandle, url_loader_factory)
 IPC_STRUCT_END()
 
-#if BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+#if (BUILDFLAG(USE_EXTERNAL_POPUP_MENU) || defined(USE_EFL))  && !defined(CASTANETS)
 // This message is used for supporting popup menus on Mac OS X and Android using
 // native controls. See the FrameHostMsg_ShowPopup message.
 IPC_STRUCT_BEGIN(FrameHostMsg_ShowPopup_Params)
@@ -668,6 +682,9 @@ IPC_STRUCT_BEGIN(FrameHostMsg_ShowPopup_Params)
 
   // Whether this is a multi-select popup.
   IPC_STRUCT_MEMBER(bool, allow_multiple_selection)
+
+  // AdvancedIME Options for WebSelectDialog
+  IPC_STRUCT_MEMBER(int, advanced_ime_options)
 IPC_STRUCT_END()
 #endif
 
@@ -773,6 +790,11 @@ IPC_MESSAGE_ROUTED0(FrameMsg_DidStartLoading)
 // A message sent to RenderFrameProxy to indicate that its corresponding
 // RenderFrame has completed loading.
 IPC_MESSAGE_ROUTED0(FrameMsg_DidStopLoading)
+
+// VRBrowser++
+// Request for the renderer to insert CSS into the frame.
+IPC_MESSAGE_ROUTED1(FrameMsg_CSSInsertRequest, std::string /* css */)
+// VRBrowser--
 
 // Add message to the frame console.
 IPC_MESSAGE_ROUTED2(FrameMsg_AddMessageToConsole,
@@ -901,7 +923,7 @@ IPC_MESSAGE_ROUTED1(FrameMsg_PostMessageEvent, FrameMsg_PostMessage_Params)
 // Tells the RenderFrame to clear the focused element (if any).
 IPC_MESSAGE_ROUTED0(FrameMsg_ClearFocusedElement)
 
-#if defined(OS_ANDROID)
+#if (defined(OS_ANDROID) || defined(USE_EFL))  && !defined(CASTANETS)
 // Request the distance to the nearest find result in a frame from the point at
 // (x, y), defined in fractions of the content document's width and height. The
 // distance will be returned via FrameHostMsg_GetNearestFindResult_Reply.  Note
@@ -931,6 +953,10 @@ IPC_MESSAGE_ROUTED3(FrameMsg_ActivateNearestFindResult,
 // this immediately after a FrameHostMsg_Find_Reply message arrives with
 // final_update set to true).
 IPC_MESSAGE_ROUTED1(FrameMsg_FindMatchRects, int /* current_version */)
+
+#if defined(S_TERRACE_SUPPORT)
+IPC_MESSAGE_ROUTED1(FrameMsg_OpenWebLinkMatchInfos, int /* current_version */)
+#endif
 #endif
 
 #if BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
@@ -1282,9 +1308,21 @@ IPC_SYNC_MESSAGE_CONTROL3_1(FrameHostMsg_Are3DAPIsBlocked,
 // keyboard input (true for textfields, text areas and content editable divs).
 // The second parameter is the node bounds relative to local root's
 // RenderWidgetHostView.
+#if defined(OS_TIZEN_TV_PRODUCT)
+IPC_MESSAGE_ROUTED5(FrameHostMsg_FocusedNodeChanged,
+                    bool /* is_editable_node */,
+                    gfx::Rect /* node_bounds */,
+                    bool /* is_select_node */,
+                    base::string16 /* node_id */,
+                    bool /* is_radio_or_checkbox_input_node */)
+
+#else
 IPC_MESSAGE_ROUTED2(FrameHostMsg_FocusedNodeChanged,
                     bool /* is_editable_node */,
                     gfx::Rect /* node_bounds */)
+                    //bool /* is_select_node */,
+                    //base::string16 /* node_id */)
+#endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 // Notification sent from a renderer to the browser that a Pepper plugin
@@ -1545,6 +1583,19 @@ IPC_MESSAGE_ROUTED3(FrameHostMsg_UnregisterProtocolHandler,
                     GURL /* url */,
                     bool /* user_gesture */)
 
+// Register a new handler for URL requests with the given mime_type.
+IPC_MESSAGE_ROUTED4(FrameHostMsg_RegisterContentHandler,
+                    std::string /* mime_type */,
+                    GURL /* url */,
+                    base::string16 /* title */,
+                    bool /* user_gesture */)
+
+// Unregister the registered handler for URL requests with the given mime_type.
+IPC_MESSAGE_ROUTED3(FrameHostMsg_UnregisterContentHandler,
+                    std::string /* mime_type */,
+                    GURL /* url */,
+                    bool /* user_gesture */)
+
 // Sent when the renderer loads a resource from its memory cache.
 // The security info is non empty if the resource was originally loaded over
 // a secure connection.
@@ -1693,7 +1744,7 @@ IPC_MESSAGE_ROUTED3(FrameHostMsg_WebUISend,
                     std::string /* message */,
                     base::ListValue /* args */)
 
-#if BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
+#if (BUILDFLAG(USE_EXTERNAL_POPUP_MENU) || defined(USE_EFL))  && !defined(CASTANETS)
 
 // Message to show/hide a popup menu using native controls.
 IPC_MESSAGE_ROUTED1(FrameHostMsg_ShowPopup,
@@ -1728,7 +1779,17 @@ IPC_MESSAGE_ROUTED3(FrameHostMsg_FindMatchRects_Reply,
 IPC_MESSAGE_ROUTED2(FrameHostMsg_GetNearestFindResult_Reply,
                     int /* nfr_request_id */,
                     float /* distance */)
+
+#if defined(S_TERRACE_SUPPORT)
+IPC_MESSAGE_ROUTED3(FrameHostMsg_OpenWebLinkMatchInfos_Reply,
+                    int /* version */,
+                    std::vector<gfx::Point> /* points */,
+                    std::vector<GURL> /* url */)
 #endif
+#endif
+
+// SBrowser Extension : Content Recommender
+IPC_MESSAGE_ROUTED1(FrameHostMsg_DidGetMetadata, std::string)
 
 // Adding a new message? Stick to the sort order above: first platform
 // independent FrameMsg, then ifdefs for platform specific FrameMsg, then

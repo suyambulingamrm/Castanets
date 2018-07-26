@@ -418,4 +418,15 @@ IPC_MESSAGE_CONTROL3(ResourceHostMsg_DidChangePriority,
                      net::RequestPriority,
                      int /* intra_priority_value */)
 
+#if defined(S_TERRACE_SUPPORT)
+IPC_MESSAGE_ROUTED4(ResourceMsg_SetElementHidingRules,
+                    bool /* is_default */,
+                    bool /* hiding_enabled */,
+                    std::vector<std::string> /* selectors */,
+                    std::vector<std::string> /* whitelist_selectors */)
+
+IPC_MESSAGE_ROUTED2(ResourceMsg_SetGlobalElementHidingRules,
+                    bool /* is_default */,
+                    std::vector<std::string> /* selectors */)
+#endif
 #endif  // CONTENT_COMMON_RESOURCE_MESSAGES_H_

@@ -175,6 +175,12 @@ IPC_MESSAGE_ROUTED4(
     ui::LatencyInfo /* latency_info */,
     content::InputEventDispatchType)
 
+#if defined(USE_EFL)
+IPC_MESSAGE_ROUTED2(InputHostMsg_DidHandleKeyEvent,
+                    IPC::WebInputEventPointer /* event */,
+                    bool /* processed */)
+#endif
+
 // Sends the cursor visibility state to the render widget.
 IPC_MESSAGE_ROUTED1(InputMsg_CursorVisibilityChange,
                     bool /* is_visible */)
@@ -280,6 +286,7 @@ IPC_MESSAGE_ROUTED1(InputMsg_ReplaceMisspelling,
                     base::string16)
 IPC_MESSAGE_ROUTED0(InputMsg_Delete)
 IPC_MESSAGE_ROUTED0(InputMsg_SelectAll)
+IPC_MESSAGE_ROUTED0(InputMsg_SelectLinkText)
 
 IPC_MESSAGE_ROUTED0(InputMsg_CollapseSelection)
 
@@ -303,6 +310,7 @@ IPC_MESSAGE_ROUTED3(InputMsg_AdjustSelectionByCharacterOffset,
 // Expects a MoveRangeSelectionExtent_ACK message when finished.
 IPC_MESSAGE_ROUTED1(InputMsg_MoveRangeSelectionExtent,
                     gfx::Point /* extent */)
+                    //bool /* is_last_touch_point */)
 
 // Requests the renderer to move the caret selection toward the point.
 // Expects a MoveCaret_ACK message when finished.
@@ -353,6 +361,12 @@ IPC_MESSAGE_ROUTED1(InputHostMsg_DidOverscroll,
 
 // Sent by the compositor when a fling animation is stopped.
 IPC_MESSAGE_ROUTED0(InputHostMsg_DidStopFlinging)
+
+#if defined(S_TERRACE_SUPPORT)
+IPC_MESSAGE_ROUTED2(InputHostMsg_NotifyScrollbarState,
+                    bool /*disable*/,
+                    bool /*visible*/)
+#endif
 
 // Acknowledges receipt of a InputMsg_MoveCaret message.
 IPC_MESSAGE_ROUTED0(InputHostMsg_MoveCaret_ACK)
