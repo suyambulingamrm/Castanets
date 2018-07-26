@@ -342,7 +342,7 @@ IPC_STRUCT_END()
 
 // Messages sent from the browser to the renderer.
 
-#if defined(OS_ANDROID) || defined(USE_EFL)
+#if (defined(OS_ANDROID) || defined(USE_EFL))  && !defined(CASTANETS)
 // Tells the renderer to cancel an opened date/time dialog.
 IPC_MESSAGE_ROUTED0(ViewMsg_CancelDateTimeDialog)
 
@@ -630,7 +630,7 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SelectLinkText, gfx::Point)
 //Sent by browser when LongPress is initiated for Enter Key
 IPC_MESSAGE_ROUTED1(ViewMsg_LongPressOnFocused, IPC::WebInputEventPointer)
 
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID)  && !defined(CASTANETS)
 // Notifies the renderer whether hiding/showing the browser controls is enabled
 // and whether or not to animate to the proper state.
 IPC_MESSAGE_ROUTED3(ViewMsg_UpdateBrowserControlsState,
@@ -650,7 +650,7 @@ IPC_MESSAGE_ROUTED1(ViewMsg_MoveFocusToPrevNextInputElement,
                     bool /* is next element*/)
 #endif
 
-#if defined(OS_ANDROID) || defined(USE_EFL)
+#if (defined(OS_ANDROID) || defined(USE_EFL))  && !defined(CASTANETS)
 // Sent by browser when the focused link has to be selected
 IPC_MESSAGE_ROUTED0(ViewMsg_SelectFocusedLink)
 #endif
@@ -985,7 +985,7 @@ IPC_MESSAGE_ROUTED3(ViewHostMsg_SelectWordAroundCaretAck,
                     int /* start_adjust */,
                     int /* end_adjust */)
 
-#if defined(OS_ANDROID) || defined(USE_EFL)
+#if (defined(OS_ANDROID) || defined(USE_EFL))  && !defined(CASTANETS)
 
 #if defined(S_TERRACE_SUPPORT) || defined(USE_EFL)
 // Start an android intent with the given URI.

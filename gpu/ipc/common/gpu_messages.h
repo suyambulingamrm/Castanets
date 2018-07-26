@@ -40,7 +40,7 @@
 #include "ui/latency/latency_info.h"
 #include "url/ipc/url_param_traits.h"
 
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID) && !defined(CASTANETS)
 #include "gpu/ipc/common/android/surface_texture_peer.h"
 #elif defined(OS_MACOSX)
 #include "ui/base/cocoa/remote_layer_api.h"
