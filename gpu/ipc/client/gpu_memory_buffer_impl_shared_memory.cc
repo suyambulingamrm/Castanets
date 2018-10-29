@@ -75,6 +75,9 @@ GpuMemoryBufferImplSharedMemory::CreateGpuMemoryBuffer(
   handle.stride = static_cast<int32_t>(
       gfx::RowSizeForBufferFormat(size.width(), format, 0));
   handle.handle = shared_memory.TakeHandle();
+#if defined(NETWORK_SHARED_MEMORY)
+  handle.memory_id = shared_memory.GetMemoryId();
+#endif
   return handle;
 }
 
@@ -88,9 +91,13 @@ GpuMemoryBufferImplSharedMemory::CreateFromHandle(
     const DestructionCallback& callback) {
   DCHECK(base::SharedMemory::IsHandleValid(handle.handle));
 
+  std::unique_ptr<base::SharedMemory> shared_memory = base::MakeUnique<base::SharedMemory>(handle.handle, false);
+#if defined(NETWORK_SHARED_MEMORY)
+  shared_memory->SetMemoryId(handle.memory_id);
+#endif
   return base::WrapUnique(new GpuMemoryBufferImplSharedMemory(
       handle.id, size, format, callback,
-      base::MakeUnique<base::SharedMemory>(handle.handle, false), handle.offset,
+      std::move(shared_memory), handle.offset,
       handle.stride));
 }
 
@@ -182,6 +189,11 @@ bool GpuMemoryBufferImplSharedMemory::Map() {
     // Note: offset_ != 0 is not common use-case. To keep it simple we
     // map offset + buffer_size here but this can be avoided using MapAt().
     size_t map_size = offset_ + buffer_size;
+#if defined(NETWORK_SHARED_MEMORY)
+    if(shared_memory_->handle().GetHandle() == 0)
+      shared_memory_->CreateNamedDeprecated(std::to_string(shared_memory_->GetMemoryId()),1,map_size);
+#endif
+
     if (!shared_memory_->Map(map_size))
       base::TerminateBecauseOutOfMemory(map_size);
   }
@@ -213,6 +225,9 @@ gfx::GpuMemoryBufferHandle GpuMemoryBufferImplSharedMemory::GetHandle() const {
   handle.offset = offset_;
   handle.stride = stride_;
   handle.handle = shared_memory_->handle();
+#if defined(NETWORK_SHARED_MEMORY)
+  handle.memory_id = shared_memory_->GetMemoryId();
+#endif
   return handle;
 }
 

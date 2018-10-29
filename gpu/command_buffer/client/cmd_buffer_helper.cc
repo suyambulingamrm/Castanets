@@ -171,6 +171,10 @@ void CommandBufferHelper::UpdateCachedState(const CommandBuffer::State& state) {
 }
 
 bool CommandBufferHelper::WaitForGetOffsetInRange(int32_t start, int32_t end) {
+#if defined(NETWORK_SHARED_MEMORY)
+  if (HaveRingBuffer())
+    fdatasync(ring_buffer_->backing()->shared_memory_handle().GetHandle());
+#endif
   DCHECK(start >= 0 && start <= total_entry_count_);
   DCHECK(end >= 0 && end <= total_entry_count_);
   CommandBuffer::State last_state = command_buffer_->WaitForGetOffsetInRange(
@@ -185,6 +189,9 @@ void CommandBufferHelper::Flush() {
     put_ = 0;
 
   if (HaveRingBuffer()) {
+#if defined(NETWORK_SHARED_MEMORY)
+    fdatasync(ring_buffer_->backing()->shared_memory_handle().GetHandle());
+#endif
     last_flush_time_ = base::TimeTicks::Now();
     last_put_sent_ = put_;
     command_buffer_->Flush(put_);
@@ -205,6 +212,9 @@ void CommandBufferHelper::OrderingBarrier() {
     put_ = 0;
 
   if (HaveRingBuffer()) {
+#if defined(NETWORK_SHARED_MEMORY)
+    fdatasync(ring_buffer_->backing()->shared_memory_handle().GetHandle());
+#endif
     command_buffer_->OrderingBarrier(put_);
     ++flush_generation_;
     CalcImmediateEntries(0);

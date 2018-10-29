@@ -30,7 +30,11 @@ class GL_EXPORT GLImageSharedMemory : public GLImageMemory {
                   gfx::GenericSharedMemoryId shared_memory_id,
                   gfx::BufferFormat format,
                   size_t offset,
+#if defined(NETWORK_SHARED_MEMORY)
+                  size_t stride, int memory_id=0);
+#else
                   size_t stride);
+#endif
 
   // Overridden from GLImage:
   void OnMemoryDump(base::trace_event::ProcessMemoryDump* pmd,

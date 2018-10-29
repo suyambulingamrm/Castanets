@@ -106,6 +106,7 @@ bool SharedMemory::Create(const SharedMemoryCreateOptions& options) {
 #if defined(NETWORK_SHARED_MEMORY)
     bool result =
         CreateAnonymousSharedMemory(options, &fp, &readonly_fd, &path, &shared_memory_file_id);
+  SetMemoryId(shared_memory_file_id);
 #else
     bool result =
         CreateAnonymousSharedMemory(options, &fp, &readonly_fd, &path);
@@ -221,7 +222,6 @@ bool SharedMemory::Create(const SharedMemoryCreateOptions& options) {
   readonly_shm_ =
       SharedMemoryHandle(base::FileDescriptor(readonly_mapped_file, false),
                          options.size, shm_.GetGUID(), shared_memory_file_id);
-  SetMemoryId(shared_memory_file_id);
 #endif
   return result;
 }

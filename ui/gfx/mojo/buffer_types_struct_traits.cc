@@ -92,6 +92,9 @@ bool StructTraits<gfx::mojom::GpuMemoryBufferHandleDataView,
     }
 
     out->offset = data.offset();
+#if defined(NETWORK_SHARED_MEMORY)
+    out->memory_id = data.memory_id();
+#endif
     out->stride = data.stride();
   }
 #if defined(OS_LINUX)

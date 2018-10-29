@@ -80,4 +80,7 @@ struct GpuMemoryBufferHandle {
   uint32 stride;
   NativePixmapHandle? native_pixmap_handle;
   handle? mach_port;
+  // memory id is needed only when NETWORK_SHARED_MEMORY is enabled.
+  // this has to be commented for build error when NETWORK_SHARED_MEMORY is disabled.
+  uint32 memory_id;
 };

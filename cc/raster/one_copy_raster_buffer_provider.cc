@@ -228,6 +228,9 @@ void OneCopyRasterBufferProvider::PlaybackAndCopyOnWorkerThread(
   CopyOnWorkerThread(staging_buffer.get(), resource_lock, raster_source,
                      raster_full_rect);
 
+#if defined(NETWORK_SHARED_MEMORY)
+  fdatasync(staging_buffer->gpu_memory_buffer->GetHandle().handle.GetHandle());
+#endif
   staging_pool_.ReleaseStagingBuffer(std::move(staging_buffer));
 }
 

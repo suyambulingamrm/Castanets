@@ -290,6 +290,11 @@ struct StructTraits<gfx::mojom::GpuMemoryBufferHandleDataView,
   static const gfx::NativePixmapHandle& native_pixmap_handle(
       const gfx::GpuMemoryBufferHandle& handle);
   static mojo::ScopedHandle mach_port(const gfx::GpuMemoryBufferHandle& handle);
+#if defined(NETWORK_SHARED_MEMORY)
+  static uint32_t memory_id(const gfx::GpuMemoryBufferHandle& handle) {
+    return handle.memory_id;
+  }
+#endif
   static bool Read(gfx::mojom::GpuMemoryBufferHandleDataView data,
                    gfx::GpuMemoryBufferHandle* handle);
 };
