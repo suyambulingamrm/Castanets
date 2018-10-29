@@ -33,13 +33,18 @@ void SharedBitmapAllocationNotifierImpl::Bind(
 
 void SharedBitmapAllocationNotifierImpl::DidAllocateSharedBitmap(
     mojo::ScopedSharedBufferHandle buffer,
+#if defined(NETWORK_SHARED_MEMORY)
+    const SharedBitmapId& id, int32_t memory_id) {
+#else
     const SharedBitmapId& id) {
+#endif
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   base::SharedMemoryHandle memory_handle;
   size_t size;
   MojoResult result = mojo::UnwrapSharedMemoryHandle(
       std::move(buffer), &memory_handle, &size, NULL);
   DCHECK_EQ(result, MOJO_RESULT_OK);
+  memory_handle.SetMemoryFileId(memory_id);
   this->ChildAllocatedSharedBitmap(size, memory_handle, id);
   last_sequence_number_++;
   for (SharedBitmapAllocationObserver& observer : observers_)

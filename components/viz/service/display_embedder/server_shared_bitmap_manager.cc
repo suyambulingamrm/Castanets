@@ -166,7 +166,13 @@ bool ServerSharedBitmapManager::ChildAllocatedSharedBitmap(
   if (handle_map_.find(id) != handle_map_.end())
     return false;
   auto data = base::MakeRefCounted<BitmapData>(buffer_size);
-#if defined(CASTANETS)
+#if defined(NETWORK_SHARED_MEMORY)
+  data->memory = base::MakeUnique<base::SharedMemory>(handle, false);
+  std::string mid=std::string("R")+std::to_string(handle.GetMemoryFileId());
+  data->memory->CreateNamedDeprecated(mid.c_str(),1,data->buffer_size);
+  data->memory->Map(data->buffer_size);
+  data->memory->Close();
+#elif defined(CASTANETS)
   data->memory.reset(new base::SharedMemory); // need?
 #else
   data->memory = base::MakeUnique<base::SharedMemory>(handle, false);
@@ -191,7 +197,6 @@ void ServerSharedBitmapManager::ChildRasterizedSharedBitmap(
   base::AutoLock lock(lock_);
   auto it = handle_map_.find(id);
   DCHECK(it != handle_map_.end());
-
   BitmapData* data = it->second.get();
   data->pixels = std::unique_ptr<uint8_t[]>(new uint8_t[size]);
   memcpy(data->pixels.get(), pixels, size);

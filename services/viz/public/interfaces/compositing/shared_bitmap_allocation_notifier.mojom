@@ -10,7 +10,7 @@ import "gpu/ipc/common/mailbox.mojom";
 // display compositor.
 interface SharedBitmapAllocationNotifier {
   // Informs the display compositor that the child allocated a shared bitmap.
-  DidAllocateSharedBitmap(handle<shared_buffer> buffer, gpu.mojom.Mailbox id);
+  DidAllocateSharedBitmap(handle<shared_buffer> buffer, gpu.mojom.Mailbox id, int32 memory_id);
 
   // Informs the display compositor that the child deleted a shared bitmap.
   DidDeleteSharedBitmap(gpu.mojom.Mailbox id);

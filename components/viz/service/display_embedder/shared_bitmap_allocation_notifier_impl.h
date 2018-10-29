@@ -37,7 +37,11 @@ class VIZ_SERVICE_EXPORT SharedBitmapAllocationNotifierImpl
 
   // mojom::SharedBitmapAllocationNotifier overrides:
   void DidAllocateSharedBitmap(mojo::ScopedSharedBufferHandle buffer,
+#if defined(NETWORK_SHARED_MEMORY)
+                               const SharedBitmapId& id, int32_t memory_id) override;
+#else
                                const SharedBitmapId& id) override;
+#endif
   void DidDeleteSharedBitmap(const SharedBitmapId& id) override;
 
   // Used only in Castanets.

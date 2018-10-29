@@ -1082,6 +1082,9 @@ ResourceProvider::ScopedWriteLockSoftware::ScopedWriteLockSoftware(
 ResourceProvider::ScopedWriteLockSoftware::~ScopedWriteLockSoftware() {
   Resource* resource = resource_provider_->GetResource(resource_id_);
   resource->SetSynchronized();
+#if defined(NETWORK_SHARED_MEMORY)
+  fdatasync(resource->shared_bitmap->GetSharedMemoryHandle().GetHandle());
+#endif
   resource_provider_->UnlockForWrite(resource);
 }
 
