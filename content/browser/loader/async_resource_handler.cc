@@ -309,7 +309,8 @@ void AsyncResourceHandler::OnReadCompleted(
 #else
 #if defined(NETWORK_SHARED_MEMORY)
   // TODO: Its needs to manually flush the opened files to the network filesystem.
-  base::nfs_util::FlushToDisk(buffer_->GetSharedMemory().handle().GetHandle());
+  // TODO: Its needs to manually sync the opened files to the filesystem to reflect on NFS server.
+  fdatasync(buffer_->GetSharedMemory().handle().GetHandle());
 #endif
   filter->Send(new ResourceMsg_DataReceived(GetRequestID(), data_offset,
                                             bytes_read, encoded_data_length));

@@ -208,7 +208,13 @@ GLenum GLES2Implementation::CheckFramebufferStatus(GLenum target) {
   *result = 0;
   helper_->CheckFramebufferStatus(target, GetResultShmId(),
                                   GetResultShmOffset());
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   GLenum result_value = *result;
   GPU_CLIENT_LOG("returned " << result_value);
   CheckGLError();
@@ -894,6 +900,9 @@ void GLES2Implementation::GetBooleanv(GLenum pname, GLboolean* params) {
   result->SetNumResults(0);
   helper_->GetBooleanv(pname, GetResultShmId(), GetResultShmOffset());
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   result->CopyResult(params);
   GPU_CLIENT_LOG_CODE_BLOCK({
     for (int32_t i = 0; i < result->GetNumResults(); ++i) {
@@ -923,6 +932,9 @@ void GLES2Implementation::GetBufferParameteri64v(GLenum target,
   helper_->GetBufferParameteri64v(target, pname, GetResultShmId(),
                                   GetResultShmOffset());
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   result->CopyResult(params);
   GPU_CLIENT_LOG_CODE_BLOCK({
     for (int32_t i = 0; i < result->GetNumResults(); ++i) {
@@ -953,6 +965,9 @@ void GLES2Implementation::GetBufferParameteriv(GLenum target,
   helper_->GetBufferParameteriv(target, pname, GetResultShmId(),
                                 GetResultShmOffset());
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   result->CopyResult(params);
   GPU_CLIENT_LOG_CODE_BLOCK({
     for (int32_t i = 0; i < result->GetNumResults(); ++i) {
@@ -976,8 +991,14 @@ void GLES2Implementation::GetFloatv(GLenum pname, GLfloat* params) {
     return;
   }
   result->SetNumResults(0);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->GetFloatv(pname, GetResultShmId(), GetResultShmOffset());
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   result->CopyResult(params);
   GPU_CLIENT_LOG_CODE_BLOCK({
     for (int32_t i = 0; i < result->GetNumResults(); ++i) {
@@ -1013,6 +1034,9 @@ void GLES2Implementation::GetFramebufferAttachmentParameteriv(GLenum target,
   helper_->GetFramebufferAttachmentParameteriv(
       target, attachment, pname, GetResultShmId(), GetResultShmOffset());
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   result->CopyResult(params);
   GPU_CLIENT_LOG_CODE_BLOCK({
     for (int32_t i = 0; i < result->GetNumResults(); ++i) {
@@ -1118,8 +1142,14 @@ void GLES2Implementation::GetIntegerv(GLenum pname, GLint* params) {
     return;
   }
   result->SetNumResults(0);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->GetIntegerv(pname, GetResultShmId(), GetResultShmOffset());
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   result->CopyResult(params);
   GPU_CLIENT_LOG_CODE_BLOCK({
     for (int32_t i = 0; i < result->GetNumResults(); ++i) {
@@ -1290,8 +1320,14 @@ void GLES2Implementation::GetShaderiv(GLuint shader,
     return;
   }
   result->SetNumResults(0);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->GetShaderiv(shader, pname, GetResultShmId(), GetResultShmOffset());
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   result->CopyResult(params);
   GPU_CLIENT_LOG_CODE_BLOCK({
     for (int32_t i = 0; i < result->GetNumResults(); ++i) {

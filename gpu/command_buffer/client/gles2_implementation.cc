@@ -58,6 +58,8 @@
 #include "ui/gfx/ipc/color/gfx_param_traits.h"
 #endif
 
+#include "base/memory/shared_memory_castanets_helper.h"
+
 namespace gpu {
 namespace gles2 {
 
@@ -617,10 +619,16 @@ bool GLES2Implementation::GetBucketContents(uint32_t bucket_id,
     return false;
   }
   *result = 0;
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->GetBucketStart(
       bucket_id, GetResultShmId(), GetResultShmOffset(),
       buffer.size(), buffer.shm_id(), buffer.offset());
   WaitForCmd();
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   uint32_t size = *result;
   data->resize(size);
   if (size > 0u) {
@@ -663,6 +671,9 @@ void GLES2Implementation::SetBucketContents(uint32_t bucket_id,
       }
       memcpy(buffer.address(), static_cast<const int8_t*>(data) + offset,
              buffer.size());
+#if defined(NETWORK_SHARED_MEMORY)
+      base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
       helper_->SetBucketData(
           bucket_id, offset, buffer.size(), buffer.shm_id(), buffer.offset());
       offset += buffer.size();
@@ -1272,7 +1283,10 @@ bool GLES2Implementation::GetQueryObjectValueHelper(
         helper_->WaitForToken(query->token());
         if (!query->CheckResultsAvailable(helper_)) {
           FinishHelper();
+#if !defined(NETWORK_SHARED_MEMORY)
+          // TODO: Check the reason for crash here occasionally.
           CHECK(query->CheckResultsAvailable(helper_));
+#endif
         }
       }
       *params = query->GetResult();
@@ -1384,8 +1398,14 @@ void GLES2Implementation::DrawElementsImpl(
       return;
     }
   }
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->DrawElements(mode, count, type, offset);
   RestoreElementAndArrayBuffers(simulated);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   CheckGLError();
 }
 
@@ -1940,6 +1960,9 @@ void GLES2Implementation::ShaderBinary(
   void* shader_data = buffer.elements() + shader_id_size;
   memcpy(shader_ids, shaders, shader_id_size);
   memcpy(shader_data, binary, length);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->ShaderBinary(
       n,
       buffer.shm_id(),
@@ -2061,6 +2084,10 @@ void GLES2Implementation::VertexAttribIPointer(
                "client side arrays are not allowed in vertex array objects.");
     return;
   }
+
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   if (!support_client_side_arrays_ || bound_array_buffer_ != 0) {
     // Only report NON client side buffers to the service.
     if (!ValidateOffset("glVertexAttribIPointer",
@@ -2096,6 +2123,9 @@ void GLES2Implementation::VertexAttribPointer(
                "client side arrays are not allowed in vertex array objects.");
     return;
   }
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   if (!support_client_side_arrays_ || bound_array_buffer_ != 0) {
     // Only report NON client side buffers to the service.
     if (!ValidateOffset("glVertexAttribPointer",
@@ -2105,6 +2135,9 @@ void GLES2Implementation::VertexAttribPointer(
     helper_->VertexAttribPointer(index, size, type, normalized, stride,
                                  ToGLuint(ptr));
   }
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   CheckGLError();
 }
 
@@ -2116,6 +2149,9 @@ void GLES2Implementation::VertexAttribDivisorANGLE(
       << divisor << ") ");
   // Record the info on the client side.
   vertex_array_object_manager_->SetAttribDivisor(index, divisor);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->VertexAttribDivisorANGLE(index, divisor);
   CheckGLError();
 }
@@ -2167,6 +2203,9 @@ void GLES2Implementation::BufferDataHelper(
 
   if (buffer.size() >= static_cast<unsigned int>(size)) {
     memcpy(buffer.address(), data, size);
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     helper_->BufferData(
         target,
         size,
@@ -2247,6 +2286,9 @@ void GLES2Implementation::BufferSubDataHelperImpl(
       }
     }
     memcpy(buffer->address(), source, buffer->size());
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     helper_->BufferSubData(
         target, offset, buffer->size(), buffer->shm_id(), buffer->offset());
     offset += buffer->size();
@@ -2616,6 +2658,9 @@ void GLES2Implementation::TexImage2D(
     helper_->TexImage2D(
         target, level, internalformat, width, height, format, type,
         0, offset.ValueOrDefault(0));
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     CheckGLError();
     return;
   }
@@ -2638,6 +2683,9 @@ void GLES2Implementation::TexImage2D(
           target, level, internalformat, width, height, format, type,
           buffer->shm_id(), buffer->shm_offset() + offset);
       buffer->set_last_usage_token(helper_->InsertToken());
+#if defined(NETWORK_SHARED_MEMORY)
+      base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
       CheckGLError();
     }
     return;
@@ -2647,6 +2695,9 @@ void GLES2Implementation::TexImage2D(
   if (!pixels || width == 0 || height == 0) {
     helper_->TexImage2D(
        target, level, internalformat, width, height, format, type, 0, 0);
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     CheckGLError();
     return;
   }
@@ -2708,6 +2759,9 @@ void GLES2Implementation::TexImage2D(
     helper_->TexImage2D(
         target, level, internalformat, width, height, format, type,
         shm_id, shm_offset);
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     CheckGLError();
     return;
   }
@@ -2716,6 +2770,9 @@ void GLES2Implementation::TexImage2D(
   helper_->TexImage2D(
      target, level, internalformat, width, height, format, type,
      0, 0);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   TexSubImage2DImpl(
       target, level, 0, 0, width, height, format, type, unpadded_row_size,
       pixels, padded_row_size, GL_TRUE, &transfer_alloc,
@@ -3231,9 +3288,15 @@ void GLES2Implementation::TexSubImage2DImpl(GLenum target,
     CopyRectToBuffer(
         source, num_rows, unpadded_row_size, pixels_padded_row_size,
         buffer->address(), buffer_padded_row_size);
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     helper_->TexSubImage2D(
         target, level, xoffset, yoffset, width, num_rows, format, type,
         buffer->shm_id(), buffer->offset(), internal);
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     buffer->Release();
     yoffset += num_rows;
     source += num_rows * pixels_padded_row_size;
@@ -3326,10 +3389,16 @@ void GLES2Implementation::TexSubImage3DImpl(GLenum target,
           source, my_height, unpadded_row_size, pixels_padded_row_size,
           buffer->address(), buffer_padded_row_size);
     }
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     helper_->TexSubImage3D(
         target, level, xoffset, yoffset + row_index, zoffset + depth_index,
         width, my_height, my_depth,
         format, type, buffer->shm_id(), buffer->offset(), internal);
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::GpuSync(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     buffer->Release();
 
     total_rows -= num_rows;
@@ -3730,6 +3799,9 @@ void GLES2Implementation::GetShaderPrecisionFormat(
     *result = i->second;
   } else {
     result->success = false;
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
     helper_->GetShaderPrecisionFormat(
         shadertype, precisiontype, GetResultShmId(), GetResultShmOffset());
     WaitForCmd();
@@ -4681,6 +4753,9 @@ void GLES2Implementation::DisableVertexAttribArray(GLuint index) {
   GPU_CLIENT_LOG(
       "[" << GetLogPrefix() << "] glDisableVertexAttribArray(" << index << ")");
   vertex_array_object_manager_->SetAttribEnable(index, false);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->DisableVertexAttribArray(index);
   CheckGLError();
 }
@@ -4690,6 +4765,9 @@ void GLES2Implementation::EnableVertexAttribArray(GLuint index) {
   GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glEnableVertexAttribArray("
       << index << ")");
   vertex_array_object_manager_->SetAttribEnable(index, true);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->EnableVertexAttribArray(index);
   CheckGLError();
 }
@@ -4712,6 +4790,9 @@ void GLES2Implementation::DrawArrays(GLenum mode, GLint first, GLsizei count) {
       return;
     }
   }
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->DrawArrays(mode, first, count);
   RestoreArrayBuffer(simulated);
   CheckGLError();
@@ -4931,6 +5012,9 @@ void GLES2Implementation::ScheduleCALayerSharedStateCHROMIUM(
   GLfloat* mem = static_cast<GLfloat*>(buffer.address());
   memcpy(mem + 0, clip_rect, 4 * sizeof(GLfloat));
   memcpy(mem + 4, transform, 16 * sizeof(GLfloat));
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->ScheduleCALayerSharedStateCHROMIUM(opacity, is_clipped,
                                               sorting_context_id,
                                               buffer.shm_id(), buffer.offset());
@@ -4952,6 +5036,9 @@ void GLES2Implementation::ScheduleCALayerCHROMIUM(GLuint contents_texture_id,
   GLfloat* mem = static_cast<GLfloat*>(buffer.address());
   memcpy(mem + 0, contents_rect, 4 * sizeof(GLfloat));
   memcpy(mem + 4, bounds_rect, 4 * sizeof(GLfloat));
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->ScheduleCALayerCHROMIUM(contents_texture_id, background_color,
                                    edge_aa_mask, filter, buffer.shm_id(),
                                    buffer.offset());
@@ -4973,6 +5060,9 @@ void GLES2Implementation::ScheduleDCLayerSharedStateCHROMIUM(
   GLfloat* mem = static_cast<GLfloat*>(buffer.address());
   memcpy(mem + 0, clip_rect, 4 * sizeof(GLfloat));
   memcpy(mem + 4, transform, 16 * sizeof(GLfloat));
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->ScheduleDCLayerSharedStateCHROMIUM(opacity, is_clipped, z_order,
                                               buffer.shm_id(), buffer.offset());
 }
@@ -4999,6 +5089,9 @@ void GLES2Implementation::SetColorSpaceForScanoutCHROMIUM(
     return;
   }
   memcpy(buffer.address(), color_space_data.data(), color_space_data.size());
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->SetColorSpaceForScanoutCHROMIUM(
       texture_id, buffer.shm_id(), buffer.offset(), color_space_data.size());
 #endif
@@ -5026,6 +5119,9 @@ void GLES2Implementation::ScheduleDCLayerCHROMIUM(
   memcpy(mem + 4, bounds_rect, 4 * sizeof(GLfloat));
   memcpy(static_cast<char*>(buffer.address()) + kRectsSize,
          contents_texture_ids, textures_size);
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->ScheduleDCLayerCHROMIUM(num_textures, background_color, edge_aa_mask,
                                    filter, buffer.shm_id(), buffer.offset());
 }
@@ -5837,6 +5933,9 @@ void GLES2Implementation::DrawArraysInstancedANGLE(
       return;
     }
   }
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->DrawArraysInstancedANGLE(mode, first, count, primcount);
   RestoreArrayBuffer(simulated);
   CheckGLError();
@@ -5880,6 +5979,9 @@ void GLES2Implementation::DrawElementsInstancedANGLE(
       indices, &offset, &simulated)) {
     return;
   }
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->DrawElementsInstancedANGLE(mode, count, type, offset, primcount);
   RestoreElementAndArrayBuffers(simulated);
   CheckGLError();
@@ -6215,6 +6317,9 @@ void GLES2Implementation::WaitSyncTokenCHROMIUM(const GLbyte* sync_token_data) {
     return;
   }
 
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->WaitSyncTokenCHROMIUM(
       static_cast<GLint>(sync_token.namespace_id()),
       sync_token.command_buffer_id().GetUnsafeValue(),
@@ -6428,12 +6533,18 @@ bool GLES2Implementation::PackStringsToBucket(GLsizei count,
         --copy_size;
       if (copy_size)
         memcpy(buffer.address(), src, copy_size);
+#if defined(NETWORK_SHARED_MEMORY)
+      base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
       if (copy_size < buffer.size()) {
         // Append NULL in the end.
         DCHECK(copy_size + 1 == buffer.size());
         char* str = reinterpret_cast<char*>(buffer.address());
         str[copy_size] = 0;
       }
+#if defined(NETWORK_SHARED_MEMORY)
+      base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
       helper_->SetBucketData(kResultBucketId, offset, buffer.size(),
                              buffer.shm_id(), buffer.offset());
       offset += buffer.size();
@@ -6684,6 +6795,9 @@ void GLES2Implementation::PathCommandsCHROMIUM(GLuint path,
       static_cast<unsigned char*>(buffer.address()) + coords_size;
   memcpy(commands_addr, commands, num_commands);
 
+#if defined(NETWORK_SHARED_MEMORY)
+  base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
   helper_->PathCommandsCHROMIUM(path, num_commands, buffer.shm_id(),
                                 buffer.offset() + coords_size, num_coords,
                                 coord_type, coords_shm_id, coords_shm_offset);
@@ -7059,6 +7173,9 @@ void GLES2Implementation::ProgramPathFragmentInputGenCHROMIUM(
     DCHECK(coeffs_size > 0);
     unsigned char* addr = static_cast<unsigned char*>(buffer.address());
     memcpy(addr, coeffs, coeffs_size);
+#if defined(NETWORK_SHARED_MEMORY)
+    base::nfs_util::FlushToDisk(transfer_buffer_->shared_memory_handle().GetHandle());
+#endif
 
     helper_->ProgramPathFragmentInputGenCHROMIUM(program, location, gen_mode,
                                                  components, buffer.shm_id(),
