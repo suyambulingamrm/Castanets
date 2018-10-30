@@ -31,6 +31,18 @@ inline void Sync(int fd) {
   fseek(fp, 0L, SEEK_END);
 }
 
+inline void EvictPagesInRam(int fd) {
+  char filePath[1000];
+  char proclnk[0xFFF];
+  ssize_t r;
+  sprintf(proclnk, "/proc/self/fd/%d", fd);
+  r = readlink(proclnk, filePath, 0xFFF);
+  filePath[r] = '\0';
+  std::stringstream ss;
+  ss<<"vmtouch -e "<<filePath<<" ;";
+  system(ss.str().c_str());
+}
+
 inline void GpuSync(int fd) {
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();

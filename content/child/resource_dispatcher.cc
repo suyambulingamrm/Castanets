@@ -273,7 +273,7 @@ void ResourceDispatcher::OnReceivedData(int request_id,
   PendingRequestInfo* request_info = GetPendingRequestInfo(request_id);
 #if defined(NETWORK_SHARED_MEMORY)
   // Seek the shared memory file to trigger nfs server -> client synching.
-  base::nfs_util::Sync(request_info->buffer->handle().GetHandle());
+  base::nfs_util::EvictPagesInRam(request_info->buffer->handle().GetHandle());
 #endif
 
   bool send_ack = true;
