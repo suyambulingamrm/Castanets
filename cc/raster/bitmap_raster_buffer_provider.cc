@@ -56,7 +56,7 @@ class RasterBufferImpl : public RasterBuffer {
         stride, raster_source, raster_full_rect, playback_rect, transform,
         lock_.color_space_for_raster(), playback_settings);
 
-#if defined(CASTANETS)
+#if defined(CASTANETS) && !defined(NETWORK_SHARED_MEMORY)
     lock_.NotifyRasterizedTile(resource_->size().height()*lock_.sk_bitmap().rowBytes(), lock_.sk_bitmap().getPixels());
 #endif
 

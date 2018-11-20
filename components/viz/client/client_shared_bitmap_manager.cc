@@ -136,7 +136,9 @@ std::unique_ptr<SharedBitmap> ClientSharedBitmapManager::AllocateSharedBitmap(
 
   // Close the associated FD to save resources, the previously mapped memory
   // remains available.
+#if !defined(NETWORK_SHARED_MEMORY)
   memory->Close();
+#endif
 
   return base::MakeUnique<ClientSharedBitmap>(
       shared_bitmap_allocation_notifier_, std::move(memory), id,
@@ -177,7 +179,11 @@ uint32_t ClientSharedBitmapManager::NotifyAllocatedSharedBitmap(
   {
     base::AutoLock lock(lock_);
     (*shared_bitmap_allocation_notifier_)
+#if defined(NETWORK_SHARED_MEMORY)
+        ->DidAllocateSharedBitmap(std::move(buffer_handle), id, memory->GetMemoryId());
+#else
         ->DidAllocateSharedBitmap(std::move(buffer_handle), id);
+#endif
     return ++last_sequence_number_;
   }
 }
