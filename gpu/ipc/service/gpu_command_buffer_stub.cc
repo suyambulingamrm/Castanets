@@ -1029,6 +1029,14 @@ void GpuCommandBufferStub::OnRegisterTransferBuffer(
   // This validates the size.
   std::unique_ptr<base::SharedMemory> shared_memory(
       new base::SharedMemory(transfer_buffer, false));
+#if defined(NETWORK_SHARED_MEMORY)
+  if(transfer_buffer.GetHandle() == 0) {
+    std::string renderer_memory_id;
+    renderer_memory_id.append("R");
+    renderer_memory_id.append(std::to_string(transfer_buffer.GetMemoryFileId()));
+    shared_memory->CreateNamedDeprecated(renderer_memory_id,1,size);
+  }
+#endif
   if (!shared_memory->Map(size)) {
     DVLOG(0) << "Failed to map shared memory.";
     return;

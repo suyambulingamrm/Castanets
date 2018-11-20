@@ -901,6 +901,7 @@ void BeginRasterCHROMIUM(GLuint texture_id,
                          GLboolean can_use_lcd_text,
                          GLboolean use_distance_field_text,
                          GLint pixel_config) override;
+void flushTB() override;
 void RasterCHROMIUM(const cc::DisplayItemList* list,
                     GLint x,
                     GLint y,

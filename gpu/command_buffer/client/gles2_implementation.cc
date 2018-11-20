@@ -4443,6 +4443,10 @@ void GLES2Implementation::BindSamplerHelper(GLuint unit,
   helper_->BindSampler(unit, sampler);
 }
 
+void GLES2Implementation::flushTB() {
+  fsync(transfer_buffer_->shared_memory_handle().GetHandle());
+};
+
 void GLES2Implementation::BindTextureHelper(GLenum target, GLuint texture) {
   // TODO(gman): See note #1 above.
   // TODO(gman): Change this to false once we figure out why it's failing

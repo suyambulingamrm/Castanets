@@ -1258,5 +1258,6 @@ void RasterCHROMIUM(const cc::DisplayItemList* list,
                     GLint h) override;
 
 void EndRasterCHROMIUM() override;
+void flushTB() override;
 
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_IMPLEMENTATION_AUTOGEN_H_

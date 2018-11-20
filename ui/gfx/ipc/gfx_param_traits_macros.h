@@ -44,6 +44,9 @@ IPC_STRUCT_TRAITS_BEGIN(gfx::GpuMemoryBufferHandle)
 #elif defined(OS_MACOSX)
   IPC_STRUCT_TRAITS_MEMBER(mach_port)
 #endif
+#if defined(NETWORK_SHARED_MEMORY)
+  IPC_STRUCT_TRAITS_MEMBER(memory_id)
+#endif
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(gfx::GpuMemoryBufferId)

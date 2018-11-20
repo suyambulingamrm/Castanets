@@ -786,11 +786,12 @@ void ResourceProvider::CopyToResource(viz::ResourceId id,
   } else {
     // No sync token needed because the lock will set synchronization state to
     // LOCALLY_USED and a sync token will be generated in PrepareSendToParent.
+    GLES2Interface* gl = ContextGL();
+    DCHECK(gl);
+    gl->flushTB();
     ScopedWriteLockGL lock(this, id);
     GLuint texture_id = lock.GetTexture();
     DCHECK(texture_id);
-    GLES2Interface* gl = ContextGL();
-    DCHECK(gl);
     gl->BindTexture(resource->target, texture_id);
     if (resource->format == viz::ETC1) {
       DCHECK_EQ(resource->target, static_cast<GLenum>(GL_TEXTURE_2D));

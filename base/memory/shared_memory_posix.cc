@@ -193,6 +193,18 @@ bool SharedMemory::Create(const SharedMemoryCreateOptions& options) {
     }
     requested_size_ = options.size;
   }
+
+  if (fp) {
+    struct stat stat;
+    if (fstat(fileno(fp.get()), &stat) != 0)
+      return false;
+    if ((size_t)stat.st_size<options.size) {
+      if (HANDLE_EINTR(ftruncate(fileno(fp.get()), options.size)) != 0)
+        return false;
+      requested_size_ = options.size;
+    }
+  }
+
   if (fp == NULL) {
     PLOG(ERROR) << "Creating shared memory in " << path.value() << " failed";
     FilePath dir = path.DirName();

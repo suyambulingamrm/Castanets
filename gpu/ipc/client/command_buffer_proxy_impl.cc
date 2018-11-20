@@ -212,6 +212,10 @@ bool CommandBufferProxyImpl::Initialize(
   // sending of the CreateCommandBuffer IPC below.
   base::SharedMemoryHandle handle =
       channel->ShareToGpuProcess(shared_state_shm_->handle());
+#if defined(NETWORK_SHARED_MEMORY)
+  handle.SetMemoryFileId(shared_state_shm_->GetMemoryId());
+#endif
+
   if (!base::SharedMemory::IsHandleValid(handle))
     return false;
 
@@ -225,7 +229,8 @@ bool CommandBufferProxyImpl::Initialize(
   // so it won't cause additional jank.
   // TODO(piman): Make this asynchronous (http://crbug.com/125248).
   bool result = false;
-  bool sent = channel->Send(new GpuChannelMsg_CreateCommandBuffer(
+  bool sent = false;
+  sent = channel->Send(new GpuChannelMsg_CreateCommandBuffer(
       config, route_id_, handle, &result, &capabilities_));
   if (!sent || !result) {
     DLOG(ERROR) << "Failed to send GpuChannelMsg_CreateCommandBuffer.";
@@ -400,7 +405,6 @@ scoped_refptr<gpu::Buffer> CommandBufferProxyImpl::CreateTransferBuffer(
     return NULL;
 
   int32_t new_id = channel_->ReserveTransferBufferId();
-
   std::unique_ptr<base::SharedMemory> shared_memory(
       channel_->factory()->AllocateSharedMemory(size));
   if (!shared_memory) {
@@ -427,6 +431,9 @@ scoped_refptr<gpu::Buffer> CommandBufferProxyImpl::CreateTransferBuffer(
     return NULL;
   }
 
+#if defined(NETWORK_SHARED_MEMORY)
+  handle.SetMemoryFileId(shared_memory->GetMemoryId());
+#endif
   Send(new GpuCommandBufferMsg_RegisterTransferBuffer(route_id_, new_id, handle,
                                                       size));
   *id = new_id;
@@ -475,6 +482,9 @@ int32_t CommandBufferProxyImpl::CreateImage(ClientBuffer buffer,
   // sending of the CreateImage IPC below.
   gfx::GpuMemoryBufferHandle handle =
       gfx::CloneHandleForIPC(gpu_memory_buffer->GetHandle());
+#if defined(NETWORK_SHARED_MEMORY)
+  handle.memory_id = gpu_memory_buffer->GetHandle().memory_id;
+#endif
   bool requires_sync_token = handle.type == gfx::IO_SURFACE_BUFFER;
 
   uint64_t image_fence_sync = 0;

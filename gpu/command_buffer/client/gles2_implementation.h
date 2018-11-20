@@ -524,7 +524,6 @@ class GLES2_IMPL_EXPORT GLES2Implementation
   void DeleteShaderStub(GLsizei n, const GLuint* shaders);
   void DeleteSamplersStub(GLsizei n, const GLuint* samplers);
   void DeleteSyncStub(GLsizei n, const GLuint* syncs);
-
   void BufferDataHelper(
       GLenum target, GLsizeiptr size, const void* data, GLenum usage);
   void BufferSubDataHelper(

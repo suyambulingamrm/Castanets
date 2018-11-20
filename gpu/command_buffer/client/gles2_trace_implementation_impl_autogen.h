@@ -22,6 +22,7 @@ void GLES2TraceImplementation::AttachShader(GLuint program, GLuint shader) {
   gl_->AttachShader(program, shader);
 }
 
+void GLES2TraceImplementation::flushTB() {}
 void GLES2TraceImplementation::BindAttribLocation(GLuint program,
                                                   GLuint index,
                                                   const char* name) {

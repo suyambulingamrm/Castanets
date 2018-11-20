@@ -53,6 +53,9 @@ struct GFX_EXPORT GpuMemoryBufferHandle {
 #elif defined(OS_MACOSX) && !defined(OS_IOS)
   ScopedRefCountedIOSurfaceMachPort mach_port;
 #endif
+#if defined(NETWORK_SHARED_MEMORY)
+  int32_t memory_id;
+#endif
 };
 
 // This interface typically correspond to a type of shared memory that is also

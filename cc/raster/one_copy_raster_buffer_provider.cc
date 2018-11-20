@@ -228,6 +228,9 @@ void OneCopyRasterBufferProvider::PlaybackAndCopyOnWorkerThread(
   CopyOnWorkerThread(staging_buffer.get(), resource_lock, raster_source,
                      raster_full_rect);
 
+#if defined(NETWORK_SHARED_MEMORY)
+  // fdatasync(staging_buffer->gpu_memory_buffer->GetHandle().handle.GetHandle());
+#endif
   staging_pool_.ReleaseStagingBuffer(std::move(staging_buffer));
 }
 
@@ -313,6 +316,7 @@ void OneCopyRasterBufferProvider::CopyOnWorkerThread(
   gpu::gles2::GLES2Interface* gl = scoped_context.ContextGL();
   DCHECK(gl);
 
+  gl->flushTB();
   GLuint texture_id = resource_lock->ConsumeTexture(gl);
 
   GLenum image_target = resource_provider_->GetImageTextureTarget(
@@ -330,6 +334,7 @@ void OneCopyRasterBufferProvider::CopyOnWorkerThread(
     gl->BindTexture(image_target, staging_buffer->texture_id);
   }
 
+  fsync(staging_buffer->gpu_memory_buffer->GetHandle().handle.GetHandle());
   // Create and bind image.
   if (!staging_buffer->image_id) {
     if (staging_buffer->gpu_memory_buffer) {
@@ -403,6 +408,7 @@ void OneCopyRasterBufferProvider::CopyOnWorkerThread(
   }
 
   gl->DeleteTextures(1, &texture_id);
+  gl->flushTB();
 
   // Generate sync token for cross context synchronization.
   resource_lock->set_sync_token(ResourceProvider::GenerateSyncTokenHelper(gl));

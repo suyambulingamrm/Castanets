@@ -1073,6 +1073,16 @@ void GpuChannel::OnCreateCommandBuffer(
                "offscreen", (init_params.surface_handle == kNullSurfaceHandle));
   std::unique_ptr<base::SharedMemory> shared_state_shm(
       new base::SharedMemory(shared_state_handle, false));
+#if defined(NETWORK_SHARED_MEMORY)
+  const size_t kSharedStateSize = sizeof(CommandBufferSharedState);
+  if(shared_state_shm->handle().GetHandle() == 0) {
+    std::string renderer_memory_id;
+    renderer_memory_id.append("R");
+    renderer_memory_id.append(std::to_string(shared_state_handle.GetMemoryFileId()));
+    shared_state_shm->CreateNamedDeprecated(renderer_memory_id,1,kSharedStateSize);
+  }
+#endif
+
   std::unique_ptr<GpuCommandBufferStub> stub =
       CreateCommandBuffer(init_params, route_id, std::move(shared_state_shm));
   if (stub) {
@@ -1233,7 +1243,11 @@ scoped_refptr<gl::GLImage> GpuChannel::CreateImageForGpuMemoryBuffer(
       scoped_refptr<gl::GLImageSharedMemory> image(
           new gl::GLImageSharedMemory(size, internalformat));
       if (!image->Initialize(handle.handle, handle.id, format, handle.offset,
+#if defined(NETWORK_SHARED_MEMORY)
+                             handle.stride, handle.memory_id)) {
+#else
                              handle.stride)) {
+#endif
         return nullptr;
       }
 

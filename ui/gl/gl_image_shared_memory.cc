@@ -27,7 +27,11 @@ bool GLImageSharedMemory::Initialize(
     gfx::GenericSharedMemoryId shared_memory_id,
     gfx::BufferFormat format,
     size_t offset,
+#if defined(NETWORK_SHARED_MEMORY)
+    size_t stride, int memory_id) {
+#else
     size_t stride) {
+#endif
   if (!base::SharedMemory::IsHandleValid(handle))
     return false;
 
@@ -41,6 +45,11 @@ bool GLImageSharedMemory::Initialize(
   checked_size *= GetSize().height();
   if (!checked_size.IsValid())
     return false;
+#if defined(NETWORK_SHARED_MEMORY)
+  if(shared_memory->handle().GetHandle() == 0)
+    shared_memory->CreateNamedDeprecated(std::to_string(memory_id),1,(size_t)stride*GetSize().height());
+#endif
+
 
   // Minimize the amount of adress space we use but make sure offset is a
   // multiple of page size as required by MapAt().
