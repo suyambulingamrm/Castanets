@@ -12,6 +12,7 @@
 #include "mojo/core/embedder/process_error_callback.h"
 #include "mojo/core/platform_handle_in_transit.h"
 #include "mojo/public/cpp/platform/platform_channel_endpoint.h"
+#include "mojo/core/broker_messages.h"
 
 namespace mojo {
 namespace core {
@@ -73,6 +74,8 @@ class BrokerCastanets : public Channel::Delegate, public base::SyncDelegate {
                     uint32_t offset,
                     uint32_t sync_bytes,
                     uint32_t buffer_bytes,
+                    uint32_t original_size,
+                    uint32_t compression_type,
                     const void* data);
 
   void AddSyncFence(const base::UnguessableToken& guid, uint32_t fence_id);

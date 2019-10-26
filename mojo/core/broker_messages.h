@@ -41,6 +41,13 @@ struct BufferResponseData {
   uint64_t guid_low;
 };
 
+enum BrokerCompressionType : uint32_t {
+  NONE,
+  ZLIB,
+  BROTLI,
+  WEBP,
+};
+
 struct BufferSyncData {
   uint64_t guid_high;
   uint64_t guid_low;
@@ -51,6 +58,8 @@ struct BufferSyncData {
 #if defined(CASTANETS)
   uint32_t width;
   uint32_t stride;
+  uint32_t original_size;
+  uint32_t compression_type;
 #endif
 };
 

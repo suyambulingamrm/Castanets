@@ -21,6 +21,16 @@
 #include "mojo/public/cpp/platform/socket_utils_posix.h"
 #include "mojo/public/cpp/platform/tcp_platform_handle_utils.h"
 
+#include <brotli/encode.h>
+#include <brotli/decode.h>
+#include "third_party/zlib/google/compression_utils.h"
+#include "third_party/libwebp/src/webp/encode.h"
+#include "third_party/libwebp/src/webp/decode.h"
+
+#define ZLIB_COMPRESSION 0
+#define BROTLI_COMPRESSION 0
+#define WEBP_COMPRESSION 1
+
 namespace mojo {
 namespace core {
 
@@ -260,6 +270,43 @@ void BrokerCastanets::SyncSharedBufferImpl(const base::UnguessableToken& guid,
   CHECK_GE(mapped_size, offset + sync_size);
   BufferSyncData* buffer_sync = nullptr;
   void* extra_data = nullptr;
+
+  const uint8_t* start_ptr = static_cast <uint8_t*>(memory + offset);
+  std::vector<uint8_t> bytes(start_ptr, start_ptr + sync_size);
+#if ZLIB_COMPRESSION
+  std::string compressed;
+  std::string raw(bytes.begin(), bytes.end());
+  compression::GzipCompress(raw, &compressed);
+  VLOG(2)<<"Compression: Raw Size:"<<raw.size()<<" Compressed Size:"<<compressed.size();
+  sync_size = compressed.size();
+#elif BROTLI_COMPRESSION
+  std::vector<uint8_t> compressed_data(
+      BrotliEncoderMaxCompressedSize(sync_size));
+  size_t encoded_size = compressed_data.size();
+  bool can_use_brotli = true;
+  if(!BrotliEncoderCompress(
+      BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, sync_size,
+      reinterpret_cast<const uint8_t*>(&bytes[0]), &encoded_size,
+      reinterpret_cast<uint8_t*>(&compressed_data[0])) || encoded_size >= sync_size) {
+      can_use_brotli = false;
+      LOG(ERROR)<<"Compression Error";
+  }
+  VLOG(2)<<"Compression: Raw Size:"<<sync_size<<" Compressed Size:"<<encoded_size;
+  if (can_use_brotli)
+    sync_size = encoded_size;
+#elif WEBP_COMPRESSION
+  size_t size;
+  uint8_t* cdata = nullptr;
+  LOG(INFO)<< ":"<<sync_size;
+  bool use_webp = false;
+  if (sync_size == 262144) {
+    size = WebPEncodeRGBA(start_ptr,256,256,1024,100,&cdata);
+    sync_size = size;
+    LOG(INFO)<< "after Compression: "<<size;
+    use_webp = true;
+  }
+#endif
+
   Channel::MessagePtr out_message =
       CreateBrokerMessage(BrokerMessageType::BUFFER_SYNC, 0, sync_size,
                           &buffer_sync, &extra_data);
@@ -271,7 +318,32 @@ void BrokerCastanets::SyncSharedBufferImpl(const base::UnguessableToken& guid,
   buffer_sync->offset = offset;
   buffer_sync->sync_bytes = sync_size;
   buffer_sync->buffer_bytes = mapped_size;
+#if ZLIB_COMPRESSION
+  memcpy(extra_data, compressed.data(), compressed.size());
+  buffer_sync->compression_type = ZLIB;
+#elif BROTLI_COMPRESSION
+  buffer_sync->original_size = bytes.size();
+  if (can_use_brotli) {
+    memcpy(extra_data, compressed_data.data(), encoded_size);
+    buffer_sync->compression_type = BROTLI;
+  } else {
+    memcpy(extra_data, memory + offset, sync_size);
+    buffer_sync->compression_type = NONE;
+  }
+#elif WEBP_COMPRESSION
+  buffer_sync->original_size = bytes.size();
+  if (use_webp) {
+    LOG(INFO)<< "chck after Compression: "<<size;
+    memcpy(extra_data, cdata, sync_size);
+    buffer_sync->compression_type = WEBP;
+  } else  {
+    memcpy(extra_data, memory + offset, sync_size);
+    buffer_sync->compression_type = NONE;
+  }
+#else
   memcpy(extra_data, memory + offset, sync_size);
+  buffer_sync->compression_type = NONE;
+#endif
 
   base::AutoLock lock(sync_lock_);
 
@@ -338,6 +410,8 @@ void BrokerCastanets::OnBufferSync(uint64_t guid_high,
                                    uint32_t offset,
                                    uint32_t sync_bytes,
                                    uint32_t buffer_bytes,
+                                   uint32_t original_size,
+                                   uint32_t compression_type,
                                    const void* data) {
   CHECK(tcp_connection_);
   base::UnguessableToken guid =
@@ -350,16 +424,87 @@ void BrokerCastanets::OnBufferSync(uint64_t guid_high,
           << ", buffer_size: " << buffer_bytes
           << ", fence_id: " << fence_id;
 
+  uint8_t* compressed_data = static_cast<uint8_t*>((void*)data);
+  void* uncompressed_data = nullptr;
+  std::vector<uint8_t> data_vec (compressed_data, compressed_data + sync_bytes);
+  std::string compressed (data_vec.begin(), data_vec.end());
+
+  std::string raw;
+  std::vector<uint8_t> decoded_data(original_size);
   scoped_refptr<base::CastanetsMemoryMapping> mapping =
       base::SharedMemoryTracker::GetInstance()->FindMappedMemory(guid);
-  if (mapping) {
-    CHECK_GE(mapping->mapped_size(), offset + sync_bytes);
-    memcpy(static_cast<uint8_t*>(mapping->GetMemory()) + offset, data,
-           sync_bytes);
+  switch (compression_type) {
+    case BrokerCompressionType::ZLIB: {
+      compression::GzipUncompress(compressed, &raw);
+      VLOG(2)<<"Decompression: Compressed Size:"<<compressed.size()<<" Raw Size:"<<raw.size();
+      sync_bytes = raw.size();
+      uncompressed_data = (void*) raw.data();
+      if (mapping) {
+        CHECK_GE(mapping->mapped_size(), offset + sync_bytes);
+        memcpy(static_cast<uint8_t*>(mapping->GetMemory()) + offset, uncompressed_data,
+             sync_bytes);
 
-    fence_queue_->RemoveFence(guid, fence_id);
-    return;
+        fence_queue_->RemoveFence(guid, fence_id);
+        return;
+      }
+      break;
+    }
+    case BrokerCompressionType::BROTLI: {
+      size_t decoded_size;
+      if (!BrotliDecoderDecompress(
+          compressed.size(), reinterpret_cast<const uint8_t*>(&compressed[0]),
+          &decoded_size, &decoded_data[0]))
+        LOG(ERROR)<<"DeCompression Error";
+      VLOG(2)<<"Decompression: Compressed Size:"<<sync_bytes<<" Raw Size:"<<decoded_size;
+      sync_bytes = decoded_data.size();
+      uncompressed_data = (void*)&decoded_data[0];
+      if (mapping) {
+        CHECK_GE(mapping->mapped_size(), offset + sync_bytes);
+        memcpy(static_cast<uint8_t*>(mapping->GetMemory()) + offset, uncompressed_data,
+             sync_bytes);
+
+        fence_queue_->RemoveFence(guid, fence_id);
+        return;
+      }
+      break;
+    }
+    case BrokerCompressionType::WEBP: {
+      int width = 0;
+      int height = 0;
+      uint8_t* result = WebPDecodeRGBA(reinterpret_cast<const uint8_t*>(&compressed[0]), compressed.size(), &width, &height);
+      LOG(INFO)<< compressed.size();
+      LOG(INFO)<<"WEBP DECOMP";
+      if (result == NULL)
+        LOG(INFO)<<"failure "<<":"<< width<<":"<<height<<":"<<original_size;
+
+      LOG(INFO)<<""<<":"<< width<<":"<<height<<":"<<original_size;
+      uncompressed_data = (void*) result;
+      sync_bytes = original_size;
+      if (mapping) {
+        CHECK_GE(mapping->mapped_size(), offset + sync_bytes);
+        memcpy(static_cast<uint8_t*>(mapping->GetMemory()) + offset, uncompressed_data,
+             sync_bytes);
+
+        fence_queue_->RemoveFence(guid, fence_id);
+        return;
+      }
+      break;
+    }
+    case BrokerCompressionType::NONE:
+    default: {
+      uncompressed_data = (void*) data;
+      if (mapping) {
+        CHECK_GE(mapping->mapped_size(), offset + sync_bytes);
+        memcpy(static_cast<uint8_t*>(mapping->GetMemory()) + offset, uncompressed_data,
+             sync_bytes);
+
+        fence_queue_->RemoveFence(guid, fence_id);
+        return;
+      }
+      break;
+    }
   }
+
 
   base::SharedMemoryCreateOptions options;
   options.size = buffer_bytes;
@@ -370,7 +515,7 @@ void BrokerCastanets::OnBufferSync(uint64_t guid_high,
   void* memory = mmap(NULL, sync_bytes + offset, PROT_READ | PROT_WRITE,
                       MAP_SHARED, handle.GetPlatformHandle().fd, 0);
   uint8_t* ptr = static_cast<uint8_t*>(memory);
-  memcpy(ptr + offset, data, sync_bytes);
+  memcpy(ptr + offset, uncompressed_data, sync_bytes);
   munmap(ptr, sync_bytes + offset);
 
   fence_queue_->RemoveFence(guid, fence_id);
@@ -641,7 +786,7 @@ void BrokerCastanets::OnChannelMessage(const void* payload,
           sizeof(BufferSyncData) + sync->sync_bytes)
         OnBufferSync(sync->guid_high, sync->guid_low, sync->fence_id,
                      sync->offset, sync->sync_bytes, sync->buffer_bytes,
-                     sync + 1);
+                     sync->original_size, sync->compression_type, sync + 1);
       else
         LOG(WARNING) << "Wrong size for sync data";
       break;
