@@ -30,6 +30,10 @@
 #include "mojo/public/c/system/trap.h"
 #include "mojo/public/c/system/types.h"
 
+#if defined(CASTANETS)
+#include "mojo/public/c/system/sync.h"
+#endif
+
 namespace base {
 class PortProvider;
 }
@@ -307,12 +311,14 @@ class MOJO_SYSTEM_IMPL_EXPORT Core {
   MojoResult SyncPlatformSharedMemoryRegion(
       const MojoSharedBufferGuid* guid,
       size_t offset,
-      size_t sync_size);
+      size_t sync_size,
+      BrokerCompressionData compression_data);
   MojoResult SyncPlatformSharedMemoryRegion2d(const MojoSharedBufferGuid* guid,
                                               size_t offset,
                                               size_t sync_size,
                                               size_t width,
-                                              size_t stride);
+                                              size_t stride,
+                                              BrokerCompressionData compression_data);
   MojoResult WaitSyncPlatformSharedMemoryRegion(
       const MojoSharedBufferGuid* guid);
 #endif

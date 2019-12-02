@@ -11,26 +11,28 @@ namespace mojo {
 
 MojoResult SyncSharedMemory(const base::UnguessableToken& guid,
                             size_t offset,
-                            size_t sync_size) {
+                            size_t sync_size,
+                            BrokerCompressionData compression_data) {
   MojoSharedBufferGuid mojo_guid;
   mojo_guid.high = guid.GetHighForSerialization();
   mojo_guid.low = guid.GetLowForSerialization();
 
   return MojoSyncPlatformSharedMemoryRegion(
-      &mojo_guid, offset, sync_size);
+      &mojo_guid, offset, sync_size, compression_data);
 }
 
 MojoResult SyncSharedMemory2d(const base::UnguessableToken& guid,
                               size_t offset,
                               size_t sync_size,
                               size_t width,
-                              size_t stride) {
+                              size_t stride,
+                              BrokerCompressionData compression_data) {
   MojoSharedBufferGuid mojo_guid;
   mojo_guid.high = guid.GetHighForSerialization();
   mojo_guid.low = guid.GetLowForSerialization();
 
   return MojoSyncPlatformSharedMemoryRegion2d(&mojo_guid, offset, sync_size,
-                                              width, stride);
+                                              width, stride, compression_data);
 }
 
 MojoResult WaitSyncSharedMemory(const base::UnguessableToken& guid) {

@@ -1194,11 +1194,12 @@ MojoResult Core::UnwrapPlatformSharedMemoryRegion(
 MojoResult Core::SyncPlatformSharedMemoryRegion(
     const MojoSharedBufferGuid* guid,
     size_t offset,
-    size_t sync_size) {
+    size_t sync_size,
+    BrokerCompressionData compression_data) {
   DCHECK(sync_size);
   const base::UnguessableToken& token =
       base::UnguessableToken::Deserialize(guid->high, guid->low);
-  if (!GetNodeController()->SyncSharedBuffer(token, offset, sync_size))
+  if (!GetNodeController()->SyncSharedBuffer(token, offset, sync_size, compression_data))
       return MOJO_RESULT_UNKNOWN;
 
   return MOJO_RESULT_OK;
@@ -1209,12 +1210,13 @@ MojoResult Core::SyncPlatformSharedMemoryRegion2d(
     size_t offset,
     size_t sync_size,
     size_t width,
-    size_t stride) {
+    size_t stride,
+    BrokerCompressionData compression_data) {
   DCHECK(sync_size);
   const base::UnguessableToken& token =
       base::UnguessableToken::Deserialize(guid->high, guid->low);
   if (!GetNodeController()->SyncSharedBuffer2d(token, offset, sync_size, width,
-                                               stride))
+                                               stride, compression_data))
     return MOJO_RESULT_UNKNOWN;
 
   return MOJO_RESULT_OK;

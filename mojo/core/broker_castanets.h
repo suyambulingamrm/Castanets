@@ -12,6 +12,7 @@
 #include "mojo/core/embedder/process_error_callback.h"
 #include "mojo/core/platform_handle_in_transit.h"
 #include "mojo/public/cpp/platform/platform_channel_endpoint.h"
+#include "mojo/public/cpp/system/sync.h"
 
 namespace mojo {
 namespace core {
@@ -60,7 +61,8 @@ class BrokerCastanets : public Channel::Delegate, public base::SyncDelegate {
 
   bool SyncSharedBuffer(const base::UnguessableToken& guid,
                         size_t offset,
-                        size_t sync_size);
+                        size_t sync_size,
+                        BrokerCompressionData compression_data);
 
   bool SyncSharedBuffer(base::WritableSharedMemoryMapping& mapping,
                         size_t offset,
@@ -72,6 +74,8 @@ class BrokerCastanets : public Channel::Delegate, public base::SyncDelegate {
                     uint32_t offset,
                     uint32_t sync_bytes,
                     uint32_t buffer_bytes,
+                    uint32_t original_size,
+                    uint32_t compression_mode,
                     const void* data);
 
   void AddSyncFence(const base::UnguessableToken& guid, uint32_t fence_id);
@@ -81,7 +85,8 @@ class BrokerCastanets : public Channel::Delegate, public base::SyncDelegate {
                           size_t offset,
                           size_t sync_size,
                           size_t width,
-                          size_t stride);
+                          size_t stride,
+                          BrokerCompressionData compression_data);
 
   void OnBufferSync2d(uint64_t guid_high,
                       uint64_t guid_low,
@@ -144,6 +149,7 @@ class BrokerCastanets : public Channel::Delegate, public base::SyncDelegate {
                             size_t offset,
                             size_t sync_size,
                             size_t mapped_size,
+                            BrokerCompressionData compression_data = BrokerCompressionData(),
                             bool write_lock = true);
 
   void SyncSharedBufferImpl2d(const base::UnguessableToken& guid,
@@ -153,6 +159,7 @@ class BrokerCastanets : public Channel::Delegate, public base::SyncDelegate {
                               size_t mapped_size,
                               size_t width,
                               size_t stride,
+                              BrokerCompressionData compression_data = BrokerCompressionData(),
                               bool write_lock = true);
 
   bool tcp_connection_ = false;

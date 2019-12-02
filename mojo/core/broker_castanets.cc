@@ -21,6 +21,12 @@
 #include "mojo/public/cpp/platform/socket_utils_posix.h"
 #include "mojo/public/cpp/platform/tcp_platform_handle_utils.h"
 
+#include "third_party/libwebp/src/webp/decode.h"
+#include "third_party/libwebp/src/webp/encode.h"
+#include "third_party/zlib/google/compression_utils.h"
+
+#define COMPRESSION_THRESHOLD_BYTES 200
+
 namespace mojo {
 namespace core {
 
@@ -267,13 +273,14 @@ void BrokerCastanets::SendSyncEvent(
   CHECK(tcp_connection_);
   SyncSharedBufferImpl(mapping_info->guid(),
                        static_cast<uint8_t*>(mapping_info->GetMemory()), offset,
-                       sync_size, mapping_info->mapped_size(), write_lock);
+                       sync_size, mapping_info->mapped_size(), BrokerCompressionData(), write_lock);
 }
 
 bool BrokerCastanets::SyncSharedBuffer(
     const base::UnguessableToken& guid,
     size_t offset,
-    size_t sync_size) {
+    size_t sync_size,
+    BrokerCompressionData compression_data) {
   if (!tcp_connection_)
     return true;
 
@@ -283,7 +290,7 @@ bool BrokerCastanets::SyncSharedBuffer(
       return MOJO_RESULT_NOT_FOUND;
 
   SyncSharedBufferImpl(guid, static_cast<uint8_t*>(mapping->GetMemory()),
-                       offset, sync_size, mapping->mapped_size());
+                       offset, sync_size, mapping->mapped_size(), compression_data);
   return true;
 }
 
@@ -295,7 +302,7 @@ bool BrokerCastanets::SyncSharedBuffer(
     return true;
 
   SyncSharedBufferImpl(mapping.guid(), static_cast<uint8_t*>(mapping.memory()),
-                       offset, sync_size, mapping.mapped_size());
+                       offset, sync_size, mapping.mapped_size(), BrokerCompressionData());
   return true;
 }
 
@@ -303,7 +310,8 @@ bool BrokerCastanets::SyncSharedBuffer2d(const base::UnguessableToken& guid,
                                          size_t offset,
                                          size_t sync_size,
                                          size_t width,
-                                         size_t stride) {
+                                         size_t stride,
+                                         BrokerCompressionData compression_data) {
   if (!tcp_connection_)
     return true;
 
@@ -314,7 +322,7 @@ bool BrokerCastanets::SyncSharedBuffer2d(const base::UnguessableToken& guid,
 
   SyncSharedBufferImpl2d(guid, static_cast<uint8_t*>(mapping->GetMemory()),
                          offset, sync_size, mapping->mapped_size(), width,
-                         stride);
+                         stride, compression_data);
   return true;
 }
 
@@ -323,10 +331,49 @@ void BrokerCastanets::SyncSharedBufferImpl(const base::UnguessableToken& guid,
                                            size_t offset,
                                            size_t sync_size,
                                            size_t mapped_size,
+                                           BrokerCompressionData compression_data,
                                            bool write_lock) {
   CHECK_GE(mapped_size, offset + sync_size);
   BufferSyncData* buffer_sync = nullptr;
   void* extra_data = nullptr;
+  uint8_t* start_ptr = static_cast <uint8_t*>(memory + offset);
+  uint8_t* compressed_data = nullptr;
+  int original_sync_size = sync_size;
+  std::string compressed;
+  BrokerCompressionMode compression_mode = compression_data.mode();
+  if (sync_size <= COMPRESSION_THRESHOLD_BYTES)
+    compression_mode = NONE;
+
+  switch (compression_mode) {
+    case BrokerCompressionMode::ZLIB: {
+      std::string raw(reinterpret_cast<const char*>(start_ptr), sync_size);
+      compression::GzipCompress(raw, &compressed);
+      VLOG(2) << "ZLIB Compression: Raw Size: " << raw.size()
+              << ", Compressed Size: " << compressed.size();
+      sync_size = compressed.size();
+      compressed_data = reinterpret_cast <uint8_t*>(&compressed[0]);
+      break;
+    }
+    case BrokerCompressionMode::WEBP: {
+      size_t size;
+      size = WebPEncodeRGBA(start_ptr, compression_data.width(),
+          compression_data.height(), compression_data.stride(),
+          compression_data.quality(), &compressed_data);
+      VLOG(2) << "WEBP Compression: Raw Size: " << sync_size
+              << ", Compressed Size: " << size
+              << ", Buffer width: " << compression_data.width()
+              << ", Buffer height: " << compression_data.height()
+              << ", Buffer stride: " << compression_data.stride()
+              << ", Compression quality: " << compression_data.quality();
+      sync_size = size;
+      break;
+    }
+    case BrokerCompressionMode::NONE: {
+      compressed_data = static_cast <uint8_t*>(start_ptr);
+      break;
+    }
+  }
+
   Channel::MessagePtr out_message =
       CreateBrokerMessage(BrokerMessageType::BUFFER_SYNC, 0, sync_size,
                           &buffer_sync, &extra_data);
@@ -338,7 +385,9 @@ void BrokerCastanets::SyncSharedBufferImpl(const base::UnguessableToken& guid,
   buffer_sync->offset = offset;
   buffer_sync->sync_bytes = sync_size;
   buffer_sync->buffer_bytes = mapped_size;
-  memcpy(extra_data, memory + offset, sync_size);
+  buffer_sync->compression_mode = compression_mode;
+  memcpy(extra_data, compressed_data, sync_size);
+  buffer_sync->original_size = original_sync_size;
 
   base::AutoLock lock(sync_lock_);
 
@@ -358,6 +407,7 @@ void BrokerCastanets::SyncSharedBufferImpl2d(const base::UnguessableToken& guid,
                                              size_t mapped_size,
                                              size_t width,
                                              size_t stride,
+                                             BrokerCompressionData compression_data,
                                              bool write_lock) {
   CHECK_GE(mapped_size, offset + sync_size);
   BufferSyncData* buffer_sync = nullptr;
@@ -405,6 +455,8 @@ void BrokerCastanets::OnBufferSync(uint64_t guid_high,
                                    uint32_t offset,
                                    uint32_t sync_bytes,
                                    uint32_t buffer_bytes,
+                                   uint32_t original_size,
+                                   uint32_t compression_mode,
                                    const void* data) {
   CHECK(tcp_connection_);
   base::UnguessableToken guid =
@@ -417,17 +469,51 @@ void BrokerCastanets::OnBufferSync(uint64_t guid_high,
           << ", buffer_size: " << buffer_bytes
           << ", fence_id: " << fence_id;
 
+  void* uncompressed_data = nullptr;
+  std::string raw;
+
+  switch (compression_mode) {
+    case BrokerCompressionMode::ZLIB: {
+      std::string compressed (static_cast <const char*>(data), sync_bytes);
+      compression::GzipUncompress(compressed, &raw);
+      VLOG(2) << "ZLIB Decompression: Compressed Size: " << compressed.size()
+              << ", Raw Size: " << raw.size();
+      sync_bytes = raw.size();
+      uncompressed_data = &raw[0];
+      break;
+    }
+    case BrokerCompressionMode::WEBP: {
+      int width = 0;
+      int height = 0;
+      uint8_t* result = WebPDecodeRGBA(
+          static_cast<const uint8_t*>(data), sync_bytes, &width, &height);
+      if (result == NULL)
+        LOG(ERROR)<<"WEBP Decode failure";
+
+      VLOG(2) << "WEBP Decompression: Compressed Size: " << sync_bytes
+              << ", Raw Size: " << original_size;
+      uncompressed_data =  result;
+      sync_bytes = original_size;
+      break;
+    }
+    case BrokerCompressionMode::NONE:
+    default: {
+      uncompressed_data = (void*) data;
+      break;
+    }
+  }
+
   scoped_refptr<base::CastanetsMemoryMapping> mapping =
       base::SharedMemoryTracker::GetInstance()->FindMappedMemory(guid);
+
   if (mapping) {
     CHECK_GE(mapping->mapped_size(), offset + sync_bytes);
-    memcpy(static_cast<uint8_t*>(mapping->GetMemory()) + offset, data,
+    memcpy(static_cast<uint8_t*>(mapping->GetMemory()) + offset, uncompressed_data,
            sync_bytes);
 
     fence_queue_->RemoveFence(guid, fence_id);
     return;
   }
-
   base::SharedMemoryCreateOptions options;
   options.size = buffer_bytes;
   base::subtle::PlatformSharedMemoryRegion handle =
@@ -437,7 +523,7 @@ void BrokerCastanets::OnBufferSync(uint64_t guid_high,
   void* memory = mmap(NULL, sync_bytes + offset, PROT_READ | PROT_WRITE,
                       MAP_SHARED, handle.GetPlatformHandle().fd, 0);
   uint8_t* ptr = static_cast<uint8_t*>(memory);
-  memcpy(ptr + offset, data, sync_bytes);
+  memcpy(ptr + offset, uncompressed_data, sync_bytes);
   munmap(ptr, sync_bytes + offset);
 
   fence_queue_->RemoveFence(guid, fence_id);
@@ -706,7 +792,7 @@ void BrokerCastanets::OnChannelMessage(const void* payload,
           sizeof(BufferSyncData) + sync->sync_bytes)
         OnBufferSync(sync->guid_high, sync->guid_low, sync->fence_id,
                      sync->offset, sync->sync_bytes, sync->buffer_bytes,
-                     sync + 1);
+                     sync->original_size, sync->compression_mode, sync + 1);
       else
         LOG(WARNING) << "Wrong size for sync data";
       break;

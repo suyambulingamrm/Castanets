@@ -188,13 +188,15 @@ struct MojoSystemThunks {
   MojoResult (*SyncPlatformSharedMemoryRegion)(
       const struct MojoSharedBufferGuid* guid,
       size_t offset,
-      size_t sync_size);
+      size_t sync_size,
+      BrokerCompressionData compression_data);
   MojoResult (*SyncPlatformSharedMemoryRegion2d)(
       const struct MojoSharedBufferGuid* guid,
       size_t offset,
       size_t sync_size,
       size_t width,
-      size_t stride);
+      size_t stride,
+      BrokerCompressionData compression_data);
   MojoResult (*WaitSyncPlatformSharedMemoryRegion)(
       const struct MojoSharedBufferGuid* guid);
 #endif
