@@ -431,9 +431,9 @@ void BrokerCastanets::SyncSharedBufferImpl2d(const base::UnguessableToken& guid,
 
   while (put_bytes != sync_size) {
     memcpy(static_cast<uint8_t*>(extra_data) + put_bytes, memory + put_offset,
-           width);
-    put_offset += stride;
-    put_bytes += width;
+           stride);
+    put_bytes += stride;
+    put_offset += width * 4;
   }
 
   base::AutoLock lock(sync_lock_);
@@ -557,9 +557,9 @@ void BrokerCastanets::OnBufferSync2d(uint64_t guid_high,
   size_t put_offset = offset;
   while (put_bytes != sync_bytes) {
     memcpy(static_cast<uint8_t*>(mapping->GetMemory()) + put_offset,
-           static_cast<const uint8_t*>(data) + put_bytes, width);
-    put_offset += stride;
-    put_bytes += width;
+           static_cast<const uint8_t*>(data) + put_bytes, stride);
+    put_offset += width * 4;
+    put_bytes += stride;
   }
 
   fence_queue_->RemoveFence(guid, fence_id);

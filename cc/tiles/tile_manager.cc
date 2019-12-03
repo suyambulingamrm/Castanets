@@ -143,14 +143,20 @@ class RasterTaskImpl : public TileTask {
           size_t offset_y =
               (invalid_content_rect_.y() - content_rect_.y()) * bytes_per_pixel;
           size_t linear_offset = offset_x + (offset_y * content_rect_.width());
-
-          // Send bytes the size of invalid_content_rect.
+          //Send bytes the size of invalid_content_rect.
+#if 1
+          mojo::SyncSharedMemory2d(
+              sw_backing->SharedMemoryGuid(), linear_offset,
+              invalid_content_rect_.width() * bytes_per_pixel * invalid_content_rect_.height(),
+              content_rect_.width(), invalid_content_rect_.width() * bytes_per_pixel);
+#else
           for (int i = 0; i < invalid_content_rect_.height(); i++) {
             mojo::SyncSharedMemory(
                 sw_backing->SharedMemoryGuid(), linear_offset,
                 invalid_content_rect_.width() * bytes_per_pixel);
             linear_offset += content_rect_.width() * bytes_per_pixel;
           }
+#endif
         } else {
           mojo::SyncSharedMemory(
               sw_backing->SharedMemoryGuid(), 0,
