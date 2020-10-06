@@ -53,6 +53,10 @@
 #include "services/network/sec_fetch_site.h"
 #include "services/network/throttling/scoped_throttling_token.h"
 
+#if defined(CASTANETS)
+#include "base/distributed_chromium_util.h"
+#endif
+
 namespace network {
 
 namespace {
@@ -855,6 +859,15 @@ void URLLoader::OnResponseStarted(net::URLRequest* url_request, int net_error) {
   options.flags = MOJO_CREATE_DATA_PIPE_FLAG_NONE;
   options.element_num_bytes = 1;
   options.capacity_num_bytes = kDataPipeDefaultAllocationSize;
+#if defined(CASTANETS)
+  // TODO : |MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM| should be applied only for
+  // remote peer connected by TCP on same device.
+  if (base::Castanets::IsEnabled() &&
+      base::FeatureList::IsEnabled(features::kNetworkService)) {
+    options.flags |= MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM;
+  }
+#endif
+
   MojoResult result =
       mojo::CreateDataPipe(&options, &response_body_stream_, &consumer_handle_);
   if (result != MOJO_RESULT_OK) {

@@ -394,6 +394,11 @@ void DataPipeConsumerDispatcher::CompleteTransitAndClose() {
   in_transit_ = false;
   transferred_ = true;
   CloseNoLock();
+#if defined(CASTANETS)
+  // Do not remove the file named GUID to open shared memory in remote peer.
+  if (base::Castanets::IsEnabled())
+    shm_file_.clear();
+#endif
 }
 
 void DataPipeConsumerDispatcher::CancelTransit() {
@@ -430,15 +435,28 @@ DataPipeConsumerDispatcher::Deserialize(const void* data,
     return nullptr;
 
   base::subtle::PlatformSharedMemoryRegion::ScopedPlatformHandle region_handle;
+  auto guid = base::UnguessableToken::Deserialize(state->buffer_guid_high,
+                                                  state->buffer_guid_low);
 #if defined(CASTANETS)
   if (base::Castanets::IsEnabled()) {
+    if (handles[0].GetFD().get() < 0 &&
+        state->options.flags & MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM) {
+      base::ScopedFD fd;
+      base::FilePath path;
+      if (base::CreateNamedSharedMemory(guid.ToString(),
+                                        state->options.capacity_num_bytes, &fd,
+                                        nullptr, &path, true)) {
+        handles[0] = PlatformHandle(std::move(fd));
+      }
+      unlink(path.value().c_str());
+      const_cast<SerializedState*>(state)->options.flags &=
+          ~MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM;
+    }
     if (handles[0].GetFD().get() < 0) {
       base::SharedMemoryCreateOptions options;
       options.size = static_cast<size_t>(state->options.capacity_num_bytes);
-      auto new_region = base::CreateAnonymousSharedMemoryIfNeeded(
-          base::UnguessableToken::Deserialize(state->buffer_guid_high,
-                                              state->buffer_guid_low),
-          options);
+      auto new_region =
+          base::CreateAnonymousSharedMemoryIfNeeded(guid, options);
       region_handle = new_region.PassPlatformHandle();
     } else {
       base::SharedMemoryTracker::GetInstance()->MapInternalMemory(
@@ -501,11 +519,25 @@ DataPipeConsumerDispatcher::DataPipeConsumerDispatcher(
       control_port_(control_port),
       pipe_id_(pipe_id),
       watchers_(this),
-      shared_ring_buffer_(std::move(shared_ring_buffer)) {}
+      shared_ring_buffer_(std::move(shared_ring_buffer)) {
+#if defined(CASTANETS)
+  if (base::Castanets::IsEnabled() &&
+      options_.flags & MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM) {
+    base::FilePath path;
+    if (base::GetShmemTempDir(false, &path))
+      shm_file_ = path.Append(shared_ring_buffer_.GetGUID().ToString());
+  }
+#endif
+}
 
 DataPipeConsumerDispatcher::~DataPipeConsumerDispatcher() {
   DCHECK(is_closed_ && !shared_ring_buffer_.IsValid() &&
          !ring_buffer_mapping_.IsValid() && !in_transit_);
+#if defined(CASTANETS)
+  // Remove the shared memory file
+  if (base::Castanets::IsEnabled() && !shm_file_.empty())
+    unlink(shm_file_.value().c_str());
+#endif
 }
 
 bool DataPipeConsumerDispatcher::InitializeNoLock() {

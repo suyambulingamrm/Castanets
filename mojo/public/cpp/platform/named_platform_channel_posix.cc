@@ -56,7 +56,14 @@ bool MakeUnixAddr(const NamedPlatformChannel::ServerName& server_name,
   // Create unix_addr structure.
   memset(unix_addr, 0, sizeof(struct sockaddr_un));
   unix_addr->sun_family = AF_UNIX;
-  strncpy(unix_addr->sun_path, server_name.c_str(), kMaxSocketNameLength);
+#if defined(CASTANETS)
+  if (base::Castanets::IsEnabled()) {
+    unix_addr->sun_path[0] = '\0';
+    strncpy(unix_addr->sun_path + 1, server_name.c_str(), kMaxSocketNameLength);
+  } else
+#endif
+    strncpy(unix_addr->sun_path, server_name.c_str(), kMaxSocketNameLength);
+
   *unix_addr_len =
       offsetof(struct sockaddr_un, sun_path) + server_name.length();
   return true;
@@ -121,10 +128,13 @@ PlatformChannelServerEndpoint NamedPlatformChannel::CreateServerEndpoint(
   }
 
   // Delete any old FS instances.
-  if (unlink(name.c_str()) < 0 && errno != ENOENT) {
-    PLOG(ERROR) << "unlink " << name;
-    return PlatformChannelServerEndpoint();
-  }
+#if defined(CASTANETS)
+  if (!base::Castanets::IsEnabled())
+#endif
+    if (unlink(name.c_str()) < 0 && errno != ENOENT) {
+      PLOG(ERROR) << "unlink " << name;
+      return PlatformChannelServerEndpoint();
+    }
 
   struct sockaddr_un unix_addr;
   size_t unix_addr_len;
@@ -148,7 +158,6 @@ PlatformChannelServerEndpoint NamedPlatformChannel::CreateServerEndpoint(
     unlink(name.c_str());
     return PlatformChannelServerEndpoint();
   }
-
   *server_name = name;
   return PlatformChannelServerEndpoint(std::move(handle));
 }
