@@ -163,6 +163,10 @@ class NodeChannel : public base::RefCountedThreadSafe<NodeChannel>,
 #if defined(CASTANETS)
   void AddSyncFence(base::UnguessableToken guid, uint32_t fence_id,
                     bool write_lock);
+
+  bool IsTcpSocket() const {
+    return (channel_) ? channel_->IsTcpSocket() : false;
+  }
 #endif
 
  private:

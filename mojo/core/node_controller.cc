@@ -243,7 +243,15 @@ void NodeController::RetryInvitation(base::ProcessHandle old_process,
                      std::move(scoped_target_process),
                      std::move(connection_params)));
 }
+
+bool NodeController::IsTcpSocket(const ports::NodeName& node) {
+  scoped_refptr<NodeChannel> peer = GetPeerChannel(node);
+  if (peer && peer->IsTcpSocket())
+    return true;
+  return false;
+}
 #endif
+
 void NodeController::AcceptBrokerClientInvitation(
     ConnectionParams connection_params) {
   DCHECK(!GetConfiguration().is_broker_process);

@@ -100,6 +100,8 @@ class MOJO_SYSTEM_IMPL_EXPORT NodeController : public ports::NodeDelegate,
       const ProcessErrorCallback& process_error_callback);
 #endif
 #if defined(CASTANETS)
+  bool IsTcpSocket(const ports::NodeName& node) override;
+
   void RetryInvitation(base::ProcessHandle old_process,
                        base::ProcessHandle target_process,
                        ConnectionParams connection_params);

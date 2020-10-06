@@ -697,7 +697,7 @@ MojoResult Core::CreateDataPipe(const MojoCreateDataPipeOptions* options,
   base::subtle::PlatformSharedMemoryRegion ring_buffer_region;
   ScopedPathUnlinker path_unlinker;
   if (base::Castanets::IsEnabled()) {
-    if (options && options->flags & MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM) {
+    if (create_options.flags & MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM) {
       auto guid = base::UnguessableToken::Create();
       base::ScopedFD fd;
       base::ScopedFD readonly_fd;

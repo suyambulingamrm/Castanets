@@ -860,11 +860,20 @@ void URLLoader::OnResponseStarted(net::URLRequest* url_request, int net_error) {
   options.element_num_bytes = 1;
   options.capacity_num_bytes = kDataPipeDefaultAllocationSize;
 #if defined(CASTANETS)
-  // TODO : |MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM| should be applied only for
-  // remote peer connected by TCP on same device.
-  if (base::Castanets::IsEnabled() &&
-      base::FeatureList::IsEnabled(features::kNetworkService)) {
-    options.flags |= MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM;
+  if (base::Castanets::IsEnabled()) {
+    // Mark |MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM| only for remote peer connected
+    // by TCP socket with NetworkService.
+    if (!url_loader_client_.internal_state()
+             ->handle()
+             .QuerySignalsState()
+             .peer_tcp_socket()) {
+      // peer connected with IPC socket.
+      options.flags = MOJO_CREATE_DATA_PIPE_FLAG_NO_SYNC;
+    }
+    if (base::FeatureList::IsEnabled(features::kNetworkService) &&
+        render_frame_id_ && request_id_) {
+      options.flags = MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM;
+    }
   }
 #endif
 

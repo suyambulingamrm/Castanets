@@ -108,7 +108,8 @@ MojoResult DataPipeConsumerDispatcher::ReadData(
     void* elements,
     uint32_t* num_bytes) {
 #if defined(CASTANETS)
-  if (base::Castanets::IsEnabled())
+  if (base::Castanets::IsEnabled() &&
+      !(options_.flags & MOJO_CREATE_DATA_PIPE_FLAG_NO_SYNC))
     node_controller_->WaitSyncSharedBuffer(ring_buffer_mapping_.guid());
 #endif
   base::AutoLock lock(lock_);
@@ -209,7 +210,8 @@ MojoResult DataPipeConsumerDispatcher::BeginReadData(
     const void** buffer,
     uint32_t* buffer_num_bytes) {
 #if defined(CASTANETS)
-  if (base::Castanets::IsEnabled())
+  if (base::Castanets::IsEnabled() &&
+      !(options_.flags & MOJO_CREATE_DATA_PIPE_FLAG_NO_SYNC))
     node_controller_->WaitSyncSharedBuffer(ring_buffer_mapping_.guid());
 #endif
   base::AutoLock lock(lock_);
@@ -447,18 +449,26 @@ DataPipeConsumerDispatcher::Deserialize(const void* data,
                                         state->options.capacity_num_bytes, &fd,
                                         nullptr, &path, true)) {
         handles[0] = PlatformHandle(std::move(fd));
+      } else {
+        LOG(WARNING) << "Failed to open NamedSharedMemory. " << guid;
       }
       unlink(path.value().c_str());
       const_cast<SerializedState*>(state)->options.flags &=
           ~MOJO_CREATE_DATA_PIPE_FLAG_GUID_SHM;
     }
     if (handles[0].GetFD().get() < 0) {
+      // Clear the no sync flag to sync shared memory
+      const_cast<SerializedState*>(state)->options.flags &=
+          ~MOJO_CREATE_DATA_PIPE_FLAG_NO_SYNC;
       base::SharedMemoryCreateOptions options;
       options.size = static_cast<size_t>(state->options.capacity_num_bytes);
       auto new_region =
           base::CreateAnonymousSharedMemoryIfNeeded(guid, options);
       region_handle = new_region.PassPlatformHandle();
     } else {
+      // Set the no sync flag for valid shared memory.
+      const_cast<SerializedState*>(state)->options.flags |=
+          MOJO_CREATE_DATA_PIPE_FLAG_NO_SYNC;
       base::SharedMemoryTracker::GetInstance()->MapInternalMemory(
           handles[0].GetFD().get());
       region_handle = CreateSharedMemoryRegionHandleFromPlatformHandles(
