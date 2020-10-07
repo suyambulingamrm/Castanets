@@ -43,6 +43,10 @@ class SyncDelegate;
 }
 
 namespace mojo {
+#if defined(CASTANETS)
+class NamedPlatformChannel;
+#endif
+
 namespace core {
 
 #if defined(CASTANETS)
@@ -398,6 +402,9 @@ class MOJO_SYSTEM_IMPL_EXPORT NodeController : public ports::NodeDelegate,
       broker_hosts_;
 
   std::unique_ptr<CastanetsFenceManager> fence_manager_;
+
+  // Server endpoints of NamedPlatformChannel for introduction.
+  std::vector<NamedPlatformChannel> introduction_servers_;
 #else
   std::unique_ptr<Broker> broker_;
 #endif
