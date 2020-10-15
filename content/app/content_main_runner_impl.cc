@@ -81,6 +81,7 @@
 #if defined(CASTANETS)
 #include "base/distributed_chromium_util.h"
 #include "components/viz/common/switches.h"
+#include "content/public/browser/child_process_launcher_utils.h"
 #include "gpu/config/gpu_switches.h"
 #include "ui/gl/gl_switches.h"
 #endif
@@ -714,7 +715,7 @@ int ContentMainRunnerImpl::Initialize(const ContentMainParams& params) {
         base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
             switches::kDisableFeatures);
     std::string features_to_disable =
-        "NetworkService,NetworkServiceInProcess,SpareRendererForSitePerProcess,\
+        "SpareRendererForSitePerProcess,\
          SurfaceSynchronization";
 #if defined(OS_ANDROID)
     if (!disabled_features.empty())
@@ -930,6 +931,17 @@ int ContentMainRunnerImpl::Run(bool start_service_manager_only) {
   if (process_type.empty())
     return RunServiceManager(main_params, start_service_manager_only);
 #endif  // !defined(CHROME_MULTIPLE_DLL_CHILD)
+
+#if defined(CASTANETS)
+  // Launch utility process on Renderer side.
+  if (process_type == switches::kRendererProcess &&
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableCastanets)) {
+    base::ThreadPoolInstance::CreateAndStartWithDefaultParams("Launcher");
+    GetProcessLauncherTaskRunner()->PostTask(
+        FROM_HERE, base::BindOnce(&LaunchUtilityProcess));
+  }
+#endif
 
   return RunOtherNamedProcessTypeMain(process_type, main_params, delegate_);
 }

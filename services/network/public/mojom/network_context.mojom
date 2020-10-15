@@ -936,4 +936,14 @@ interface NetworkContext {
 
   // Gets the OriginPolicyManager associated with this network context.
   GetOriginPolicyManager(OriginPolicyManager& origin_policy_manager);
+
+  [EnableIf=is_castanets]
+  SetCacheMode(bool enable);
+
+  [EnableIf=is_castanets]
+  SetAndInitDynamicPlugin(string tizen_app_id, string injected_bundle_path);
+
+  // Create a new cookie manager with new parameters.
+  [EnableIf=is_castanets]
+  CreateCookieManager(NetworkContextParams params);
 };

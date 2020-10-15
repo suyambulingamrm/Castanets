@@ -60,7 +60,7 @@ void SetContentCommandLineFlags(bool single_process) {
         base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
             switches::kDisableFeatures);
     std::string features_to_disable =
-        "NetworkService,NetworkServiceInProcess,SpareRendererForSitePerProcess,\
+        "SpareRendererForSitePerProcess,\
         SurfaceSynchronization,VizDisplayCompositor";
     if (!disabled_features.empty())
       disabled_features = disabled_features + "," + features_to_disable;

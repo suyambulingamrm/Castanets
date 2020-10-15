@@ -408,6 +408,14 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // inside the network service.
   mojom::URLLoaderFactoryPtr CreateUrlLoaderFactoryForNetworkService();
 
+#if defined(CASTANETS)
+  void SetCacheMode(bool enable) override {}
+  void CreateCookieManager(mojom::NetworkContextParamsPtr params) override {}
+  void SetAndInitDynamicPlugin(
+      const std::string& tizen_app_id,
+      const std::string& injected_bundle_path) override {}
+#endif
+
  private:
   class ContextNetworkDelegate;
 

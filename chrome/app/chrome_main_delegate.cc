@@ -953,7 +953,8 @@ void ChromeMainDelegate::PreSandboxStartup() {
 #if defined(OS_ANDROID)
     std::string loaded_locale;
 #if defined(CASTANETS)
-    if (base::Castanets::IsEnabled()) {
+    if (process_type == switches::kRendererProcess &&
+        base::Castanets::IsEnabled()) {
       ui::MaterialDesignController::Initialize();
       loaded_locale = ui::ResourceBundle::InitSharedInstanceWithLocale(
           locale, NULL, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
